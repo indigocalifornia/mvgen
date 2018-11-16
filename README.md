@@ -82,6 +82,7 @@ argument.
 You can also import `pmvc` as a package.
 ```
 from pmvc.pmvc import PMVC
+
 p = PMVC(...)
 p.load_audio(...)
 p.generate(...)
