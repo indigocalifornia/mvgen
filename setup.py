@@ -24,12 +24,6 @@ setup(
     author='indigocalifornia',
     url='https://github.com/indigocalifornia/pmvc',
     packages=['pmvc'],
-    package_data={'pmvc': ['config.yaml']},
-    entry_points={
-        'console_scripts': [
-            'pmvc = pmvc.__main__:run',
-        ]
-    },
     include_package_data=True,
     python_requires='>=3.7',
     install_requires=requirements,
