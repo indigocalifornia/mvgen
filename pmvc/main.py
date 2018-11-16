@@ -91,11 +91,11 @@ def parse_args(config):
     )
     parser.add_argument(
         '--duration', '-d', type=int,
-        default=config['work']['duration'],
+        default=config['duration'],
         help='Beats per scene modifier.'
     )
     parser.add_argument(
-        '--audio', default=config['audio']['file'],
+        '--audio', default=config['audio'],
         help='Path to audio file.'
     )
     h = '''
@@ -106,58 +106,58 @@ def parse_args(config):
     '''
     parser.add_argument('--bpm', help=h)
     parser.add_argument(
-        '--delete', default=config['work']['delete'],
+        '--delete_work_dir', default=config['delete_work_dir'],
         action='store_true',
         help='Delete working directory.'
     )
     parser.add_argument(
-        '--offset', type=float, default=config['audio']['offset'],
+        '--offset', type=float, default=config['offset'],
         help='Audio offset in the final file.'
     )
     parser.add_argument(
-        '--force', default=config['work']['force'],
+        '--force', default=config['force'],
         nargs='*',
         help='Force width and height for final video.'
     )
     parser.add_argument(
         '--segment_duration', '--sd', type=float,
-        default=config['segments']['duration'],
+        default=config['segment_duration'],
         help='Duration of the segments.'
     )
     parser.add_argument(
         '--segment_start', '--ss', type=float,
-        default=config['segments']['start'],
+        default=config['segment_start'],
         help='Position from beginning of raw video to segment from.'
     )
     parser.add_argument(
         '--segment_end', '--se', type=float,
-        default=config['segments']['end'],
+        default=config['segment_end'],
         help='Position from end of raw video to segment to.'
     )
     parser.add_argument(
         '--force_segment',
-        default=config['segments']['force'],
+        default=config['force_segment'],
         action='store_true',
         help='Force segmentation of raw video.'
     )
     parser.add_argument(
         '--raw_directory', type=str,
-        default=config['paths']['raw'],
+        default=config['raw_directory'],
         help='Directory of original videos.'
     )
     parser.add_argument(
         '--segments_directory', type=str,
-        default=config['paths']['segments'],
+        default=config['segments_directory'],
         help='Directory for video segments.'
     )
     parser.add_argument(
         '--work_directory', type=str,
-        default=config['paths']['work'],
+        default=config['work_directory'],
         help='Directory for storing temporary files.'
     )
     parser.add_argument(
         '--ready_directory', type=str,
-        default=config['paths']['ready'],
+        default=config['ready_directory'],
         help='Directory for final videos.'
     )
 
@@ -176,7 +176,7 @@ def run(config):
         bpm=args.bpm,
         force=args.force,
         offset=args.offset,
-        delete_work_dir=args.delete,
+        delete_work_dir=args.delete_work_dir,
         segment_duration=args.segment_duration,
         segment_start=args.segment_start,
         segment_end=args.segment_end,
