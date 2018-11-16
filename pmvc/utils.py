@@ -40,8 +40,12 @@ def get_bitrate(filename):
 
 
 def runcmd(cmd):
-    with open(os.devnull, 'w') as stderr:
-        subprocess.check_output(cmd, stderr=stderr)
+    # with open(os.devnull, 'w') as stderr:
+    #     subprocess.check_output(cmd, stderr=stderr)
+    log = os.devnull
+    with open(log, 'a') as stdout:
+        subprocess.Popen(
+            cmd, stdout=stdout, stderr=subprocess.STDOUT).communicate()
 
 
 def modify_filename(filename, prefix=None, suffix=None):
