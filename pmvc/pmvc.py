@@ -235,7 +235,7 @@ class PMVC(object):
         )
 
     def make_join_file(self):
-        LOG.info('Making join file')
+        LOG.info('MAKING JOIN FILE')
 
         self.random_file = self.directory / RANDOM_FILENAME
 
@@ -246,18 +246,26 @@ class PMVC(object):
             for f in fs:
                 tf.write("file '{}'\n".format(f))
 
-    def join(self, force=False):
+    def join(self, force=None):
         LOG.info('JOINING')
 
 
         self.video = self.random_file.parent / VIDEO_FILENAME
 
-        if not force:
+        if force is None:
             cmd = cs.join(self.random_file, self.video)
 
         else:
-            LOG.info('FORCING SIZE')
-            cmd = cs.join_force(self.random_file, self.video)
+            width, height = force
+
+            LOG.info('FORCING SIZE: {}x{}'.format(width, height))
+
+            cmd = cs.join_force(
+                input_file=self.random_file,
+                output_file=self.video,
+                width=width,
+                height=height
+            )
 
         runcmd(cmd)
 

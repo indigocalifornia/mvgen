@@ -27,13 +27,16 @@ def join(*args):
     ).format(*args)
 
 
-def join_force(*args):
+def join_force(**kwargs):
     return (
-        'ffmpeg -y -auto_convert 1 -f concat -safe 0 -i "{}" -vcodec libx264'
-        ' -movflags faststart -vf "scale=(iw*sar)*min(1280/(iw*sar)\,720/ih):'
-        'ih*min(1280/(iw*sar)\,720/ih), pad=1280:720:(1280-iw*min(1280/iw\,'
-        '720/ih))/2:(720-ih*min(1280/iw\,720/ih))/2" "{}"'
-    ).format(*args)
+        'ffmpeg -y -auto_convert 1 -f concat -safe 0 -i "{input_file}"'
+        ' -vcodec libx264 -movflags faststart -vf "scale='
+        '(iw*sar)*min({width}/(iw*sar)\,'
+        '{height}/ih):ih*min({width}/(iw*sar)\,{height}/ih), pad='
+        '{width}:{height}:({width}-iw*min({width}/iw\,'
+        '{height}/ih))/2:({height}-ih*min({width}/iw\,{height}/ih))/2"'
+        ' "{output_file}"'
+    ).format(**kwargs)
 
 
 def join_audio_video(*args):
