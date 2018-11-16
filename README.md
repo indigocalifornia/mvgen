@@ -78,6 +78,34 @@ result in a 1280x720 video. Default is no forcing.
 5. By default, the script tries to load config file in the same directory. A custom config can be passed using `--config`
 argument.
 
+#### Example
+
+Suppose you have a collection of videos with a particular theme and you store them in `/home/user/raw/vidz`. You know bpm
+of your audio file, which is located at `/home/user/audio/song.mp3`. The audio doesn't need offsetting, because its
+beats start at zero and your videos come from the same source, with same codec and dimensions. You want a slower video with 4 beats per segment, and with bpm of 128 this means that segments will change every 1.875 seconds. This means that segments with 2 second duration will be more or less OK. In addition, your videos contains advertisements in the beginning and the end, so you decide to remove first and last 10 seconds of the footage.
+
+The settings you can use are
+```
+raw_directory: /home/user/raw
+segments_directory: /home/user/segments
+work_directory: /home/user/work
+ready_directory: /home/user/ready
+audio: /home/user/audio/song.mp3
+duration: 4
+bpm: 128
+delete_work_dir: true
+offset: 0
+force: null
+segment_duration: 2
+segment_start: 10
+segment_end: 10
+force_segment: false
+```
+and run the script with `python -s vidz`. If later you want to run the same source with different file, you can just run
+`python -s viz --audio /home/user/audio/song2.mp3 --bpm 145`.
+
+The generated PMV will be in `/home/user/ready` with a unique name. In addition, you will find a text file with the same name that includes name of audio used and timestamps of the videos used (named using `{counter}_{original filename}_{segment_counter}` pattern).
+
 ### Package
 You can also import `pmvc` as a package.
 ```
