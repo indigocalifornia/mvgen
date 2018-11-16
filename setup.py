@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 version = "1.0.0"
 
@@ -23,7 +23,7 @@ setup(
         'A utility that creates pmv videos.'),
     author='indigocalifornia',
     url='https://github.com/indigocalifornia/pmvc',
-    packages=['pmvc'],
+    packages=find_packages(),
     include_package_data=True,
     python_requires='>=3.7',
     install_requires=requirements,

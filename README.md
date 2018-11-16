@@ -7,6 +7,7 @@ in a single music video.
 
 ## Prerequisites
 [Python 3.7](https://www.python.org/downloads/)
+
 [ffmpeg](https://www.ffmpeg.org/)
 
 ## Installation
@@ -20,6 +21,7 @@ python setup.py install
 ```
 
 ## Usage
+### Script
 Easiest way to use it is to run as a standalone Python script.
 
 1. Order your video sources by folder. E.g. if you have a collection of videos you want to use
@@ -27,7 +29,7 @@ in a single PMV, put in a location with structure `raw_directory/vidz/`, where `
 PMV *source*, e.g. `/home/user/raw/vidz`.
 
 2. Modify `config.yaml` with your settings. As a bare minimum you will need to change paths to
-to "raw", "segments", "work" and "ready" directories.
+to "raw", "segments", "work" and "ready" directories, and path to audio file.
 
 **raw_directory**: Absolute path to video sources. In the example above it would be `/home/user/raw`
 
@@ -76,11 +78,21 @@ result in a 1280x720 video. Default is no forcing.
 5. By default, the script tries to load config file in the same directory. A custom config can be passed using `--config`
 argument.
 
+### Package
+You can also import `pmvc` as a package.
+```
+from pmvc.pmvc import PMVC
+p = PMVC(...)
+p.load_audio(...)
+p.generate(...)
+p.make_join_file()
+p.join(...)
+p.finalize(...)
+```
+
 # Support
 Feel free to contribute by making pull requests.
 
-Ask questions on Reddit,
-[https://www.reddit.com/r/PMVGeneration](https://www.reddit.com/r/PMVGeneration)
+Ask questions on Reddit: [https://www.reddit.com/r/PMVGeneration](https://www.reddit.com/r/PMVGeneration)
 
-Support me on Patreon
-[https://www.patreon.com/indigocalifornia](https://www.patreon.com/indigocalifornia)
+Support me on Patreon: [https://www.patreon.com/indigocalifornia](https://www.patreon.com/indigocalifornia)
