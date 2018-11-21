@@ -97,10 +97,17 @@ class PMVC(object):
     work_directory = attr.ib(converter=convert_path)
     uid = attr.ib(default=None, converter=convert_uid)
 
-    directory = None
     audio = None
     beats = None
     final_file = None
+
+    @uid.validator
+    def validate_uid(self, attribute, value):
+        work_directory = Path(self.work_directory)
+        self.directory = work_directory / value
+        self.random_file = work_directory / value / RANDOM_FILENAME
+        self.video = self.random_file.parent / VIDEO_FILENAME
+
 
     def load_audio(self, audio, bpm=None):
         self.directory = self._create_directory()
@@ -250,7 +257,6 @@ class PMVC(object):
 
     def join(self, force=None):
         LOG.info('JOINING')
-
 
         self.video = self.random_file.parent / VIDEO_FILENAME
 
