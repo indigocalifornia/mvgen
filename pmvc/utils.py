@@ -45,7 +45,8 @@ def runcmd(cmd):
     log = os.devnull
     with open(log, 'a') as stdout:
         subprocess.Popen(
-            cmd, stdout=stdout, stderr=subprocess.STDOUT).communicate()
+            cmd, stdout=stdout, stderr=subprocess.STDOUT, shell=True
+        ).communicate()
 
 
 def modify_filename(filename, prefix=None, suffix=None):

@@ -74,7 +74,8 @@ def combine_video_and_beats(fs, beats):
 def make_segments(src, dest, segtime, cut_start, cut_end):
     LOG.info('{} will be emptied and rewritten!'.format(dest))
 
-    shutil.rmtree(dest)
+    if dest.exists():
+        shutil.rmtree(dest)
     mkdir(dest)
 
     for f in tqdm(list(src.iterdir())):
@@ -183,12 +184,13 @@ class PMVC(object):
             segments_exist = path.exists() and len(list(path.iterdir()))
 
             if not segments_exist:
-                LOG.info(f"Segments for {path.name} don't exist, creating")
+                LOG.info("Segments for {} don't exist, creating".format(
+                    path.name))
                 self._make_segments(
                     path, segment_duration, segment_start, segment_end)
 
             elif force_segment:
-                LOG.info(f'Overwriting segments for {path.name}')
+                LOG.info('Overwriting segments for {}'.format(path.name))
                 self._make_segments(
                     path, segment_duration, segment_start, segment_end)
 
@@ -270,12 +272,11 @@ class PMVC(object):
         runcmd(cmd)
 
     def finalize(self, ready_directory=None, offset=0, delete_work_dir=True):
-        folder = self.directory
         audio = self.audio
 
         LOG.info('FINALIZE: Converting audio to AAC')
         audio = self.directory / CONVERTED_AUDIO_FILENAME
-        cmd = f'ffmpeg -y -i "{self.audio}" -acodec aac "{audio}"'
+        cmd = 'ffmpeg -y -i "{}" -acodec aac "{}"'.format(self.audio, audio)
         runcmd(cmd)
 
         final_file = self.directory / FINAL_FILENAME
@@ -288,7 +289,8 @@ class PMVC(object):
             ready_directory = Path(ready_directory)
             mkdir(ready_directory)
 
-            ready_file = ready_directory / f'{self.directory.name}.mp4'
+            ready_file = ready_directory / '{}.mp4'.format(
+                self.directory.name)
 
             shutil.copy(
                 str(final_file),
@@ -296,7 +298,7 @@ class PMVC(object):
             )
             shutil.copy(
                 str(self.directory / 'debug.txt'),
-                str(ready_directory  / f'{self.directory.name}.txt')
+                str(ready_directory  / '{}.txt'.format(self.directory.name))
             )
 
             if delete_work_dir:
