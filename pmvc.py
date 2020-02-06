@@ -19,7 +19,7 @@ def load_config():
     else:
         config_path = args.config
 
-    with open(str(config_path), 'r') as f:
+    with open(str(config_path), 'r', encoding = "utf-8") as f:
         config = yaml.load(f)
 
     return config
