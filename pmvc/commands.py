@@ -14,16 +14,22 @@ def make_segments(*args):
     ).format(*args)
 
 
+def make_segments_gif(*args):
+    return (
+        'ffmpeg -i {} -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -r 24 {}.mp4'
+    ).format(*args)
+
+
 def process_segment(*args):
     return (
-        'ffmpeg -y -i "{}" -an -ss 0 -t {} -vb {} -mbd rd'
-        ' -trellis 2 -cmp 2 -subcmp 2 -g 100 -f mpeg "{}"'
+        'ffmpeg -y -hwaccel cuvid -c:v h264_cuvid -vsync 0 -ss 0 -t {} -i "{}" -an -vb {} -mbd rd'
+        ' -trellis 2 -cmp 2 -subcmp 2 -g 100 -c:v h264_nvenc -f mpeg "{}"'
     ).format(*args)
 
 
 def join(*args):
     return (
-        'ffmpeg -y -auto_convert 1 -f concat -safe 0 -i "{}" -c:v copy {}'
+        'ffmpeg -hwaccel cuvid -auto_convert 1 -f concat -safe 0 -i "{}" -y -c:v copy {}'
     ).format(*args)
 
 

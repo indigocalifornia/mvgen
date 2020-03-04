@@ -25,6 +25,7 @@ setup(
     url='https://github.com/indigocalifornia/pmvc',
     packages=find_packages(),
     include_package_data=True,
-    python_requires='>=3.7',
+    python_requires='>=3.6.7',
     install_requires=requirements,
+    scripts=['scripts/pmvc'],
 )

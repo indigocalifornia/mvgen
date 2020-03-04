@@ -28,6 +28,7 @@ LOG.setLevel(logging.INFO)
 DEBUG_FILENAME = 'debug.txt'
 RANDOM_DIRECTORY_NAME = 'random'
 RANDOM_FILENAME = 'random.txt'
+AUDIO_FILENAME = 'audio.wav'
 CONVERTED_AUDIO_FILENAME = 'audio3.mp4'
 VIDEO_FILENAME = 'all.mp4'
 FINAL_FILENAME = 'all_music.mp4'
@@ -81,10 +82,15 @@ def make_segments(src, dest, segtime, cut_start, cut_end):
     for f in tqdm(list(src.iterdir())):
         duration = get_duration(f)
 
-        names = dest / "{}_%d{}".format(f.stem, f.suffix)
+        if str(f).endswith('.gif'):
+            names = dest / "{}{}".format(f.stem, '.gif')
+            cmd = cs.make_segments_gif(f, names)
 
-        cmd = cs.make_segments(
-            f, cut_start, duration - cut_end, segtime, names)
+        else:
+            names = dest / "{}_%d{}".format(f.stem, f.suffix)
+            cmd = cs.make_segments(
+                f, cut_start, duration - cut_end, segtime, names)
+
         runcmd(cmd)
 
 
@@ -139,7 +145,7 @@ class PMVC(object):
         if audio.suffix != '.wav':
             LOG.info('AUDIO: Converting to WAV')
 
-            new_audio = audio.parent / (audio.stem + '.wav')
+            new_audio = audio.parent / AUDIO_FILENAME
             cmd = cs.convert_to_wav(audio, new_audio)
             runcmd(cmd)
 
@@ -217,7 +223,7 @@ class PMVC(object):
                 filename = modify_filename(f.name, prefix=i)
                 outfile = self.random_directory / filename
 
-                cmd = cs.process_segment(f, diff, bitrate, outfile)
+                cmd = cs.process_segment(diff, f, bitrate, outfile)
                 runcmd(cmd)
 
                 dur = get_duration(outfile)
