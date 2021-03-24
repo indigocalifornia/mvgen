@@ -1,0 +1,16 @@
+duration: 2
+audio: F:/projects/video/video/audio/concorde.m4a
+bpm: null
+delete_work_dir: true
+offset: 0
+force: false
+start: 10
+end: 10
+segment_duration: 2
+segment_start: 0
+segment_end: 0
+force_segment: false
+raw_directory: F:/projects/video/video/files/src
+segments_directory: F:/projects/video/video/files/segments
+work_directory: F:/projects/video/video/files/work
+ready_directory: F:/projects/video/video/files/ready

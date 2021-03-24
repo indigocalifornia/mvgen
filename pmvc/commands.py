@@ -9,8 +9,8 @@ def convert_to_wav(*args):
 
 def make_segments(*args):
     return (
-        'ffmpeg -y -i "{}" -ss {} -to {} -vcodec copy -acodec copy'
-        ' -f segment -segment_time {} -reset_timestamps 1 -map 0 "{}"'
+        'ffmpeg -y -hwaccel cuvid -i "{}" -ss {} -to {} -vcodec copy -acodec copy'
+        ' -f segment -segment_time {} -reset_timestamps 1 -map 0:0 "{}"'
     ).format(*args)
 
 
@@ -22,7 +22,7 @@ def make_segments_gif(*args):
 
 def process_segment(*args):
     return (
-        'ffmpeg -y -hwaccel cuvid -c:v h264_cuvid -vsync 0 -ss 0 -t {} -i "{}" -an -vb {} -mbd rd'
+        'ffmpeg -y -hwaccel cuvid -c:v h264_cuvid -vsync 0 -ss {} -t {} -i "{}" -an -vb {} -mbd rd'
         ' -trellis 2 -cmp 2 -subcmp 2 -g 100 -c:v h264_nvenc -f mpeg "{}"'
     ).format(*args)
 
@@ -36,7 +36,7 @@ def join(*args):
 def join_force(**kwargs):
     return (
         'ffmpeg -y -auto_convert 1 -f concat -safe 0 -i "{input_file}"'
-        ' -vcodec libx264 -movflags faststart -vf "scale='
+        ' -c:v h264_nvenc -movflags faststart -vf "scale='
         '(iw*sar)*min({width}/(iw*sar)\,'
         '{height}/ih):ih*min({width}/(iw*sar)\,{height}/ih), pad='
         '{width}:{height}:({width}-iw*min({width}/iw\,'

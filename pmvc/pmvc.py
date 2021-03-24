@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import attr
 import yaml
+import re
 
 from pathlib import Path
 from tqdm import tqdm
@@ -16,7 +17,8 @@ from tqdm import tqdm
 from pmvc import commands as cs
 from pmvc.audio import get_bpm, get_beats
 from pmvc.utils import (
-    natural_keys, mkdir, get_duration, get_bitrate, runcmd, modify_filename
+    natural_keys, mkdir, get_duration, get_bitrate, runcmd, modify_filename,
+    str2sec
 )
 
 
@@ -82,12 +84,14 @@ def make_segments(src, dest, segtime, cut_start, cut_end):
     for f in tqdm(list(src.iterdir())):
         duration = get_duration(f)
 
+        filename = re.sub(r'[^\x00-\x7F]+', ' ', f.stem)
+
         if str(f).endswith('.gif'):
-            names = dest / "{}{}".format(f.stem, '.gif')
+            names = dest / "{}{}".format(filename, '.gif')
             cmd = cs.make_segments_gif(f, names)
 
         else:
-            names = dest / "{}_%d{}".format(f.stem, f.suffix)
+            names = dest / "{}_%d{}".format(filename, f.suffix)
             cmd = cs.make_segments(
                 f, cut_start, duration - cut_end, segtime, names)
 
@@ -114,9 +118,10 @@ class PMVC(object):
         self.random_file = work_directory / value / RANDOM_FILENAME
         self.video = self.random_file.parent / VIDEO_FILENAME
 
-
     def load_audio(self, audio, bpm=None):
         self.directory = self._create_directory()
+
+        self.debug_file = self.directory / DEBUG_FILENAME
 
         self.audio = self._copy_audio(audio)
 
@@ -133,11 +138,17 @@ class PMVC(object):
     def _copy_audio(self, audio):
         audio = Path(audio)
 
+        if not audio.exists():
+            return audio
+
+        if os.path.isdir(audio):
+            audio = np.random.choice(
+                [i for i in audio.iterdir() if os.path.isfile(i)]
+            )
+
         new_audio = self.directory / audio.name
         shutil.copy(str(audio), str(new_audio))
         audio = new_audio
-
-        self.debug_file = self.directory / DEBUG_FILENAME
 
         with open(str(self.debug_file), 'w') as tf:
             tf.write('{}\n'.format(audio.name))
@@ -177,7 +188,12 @@ class PMVC(object):
             LOG.info('AUDIO: {} BPM'.format(bpm))
 
             diff = 60. / bpm
-            duration = get_duration(audio)
+
+            if audio.exists():
+                duration = get_duration(audio)
+            else:
+                duration = str2sec(str(audio))
+
             beats = list(np.arange(0, duration, diff))
 
         return beats
@@ -185,27 +201,34 @@ class PMVC(object):
     def generate(
         self, sources, duration=2,
         force_segment=False, segment_duration=2,
-        segment_start=0, segment_end=0
+        segment_start=0, segment_end=0,
+        start=0, end=0
     ):
 
         self.random_directory = self.directory / RANDOM_DIRECTORY_NAME
         mkdir(self.random_directory)
 
-        segment_paths = [self.segments_directory / i for i in sources]
+        use_segments = False
 
-        for path in segment_paths:
-            segments_exist = path.exists() and len(list(path.iterdir()))
+        if use_segments:
+            segment_paths = [self.segments_directory / i for i in sources]
 
-            if not segments_exist:
-                LOG.info("Segments for {} don't exist, creating".format(
-                    path.name))
-                self._make_segments(
-                    path, segment_duration, segment_start, segment_end)
+            for path in segment_paths:
+                segments_exist = path.exists() and len(list(path.iterdir()))
 
-            elif force_segment:
-                LOG.info('Overwriting segments for {}'.format(path.name))
-                self._make_segments(
-                    path, segment_duration, segment_start, segment_end)
+                if not segments_exist:
+                    LOG.info("Segments for {} don't exist, creating".format(
+                        path.name))
+                    self._make_segments(
+                        path, segment_duration, segment_start, segment_end)
+
+                elif force_segment:
+                    LOG.info('Overwriting segments for {}'.format(path.name))
+                    self._make_segments(
+                        path, segment_duration, segment_start, segment_end)
+
+        else:
+            segment_paths = [self.raw_directory / i for i in sources]
 
         beats = self.beats[::duration]
         limit = len(beats) + 1
@@ -223,7 +246,22 @@ class PMVC(object):
                 filename = modify_filename(f.name, prefix=i)
                 outfile = self.random_directory / filename
 
-                cmd = cs.process_segment(diff, f, bitrate, outfile)
+                dur = get_duration(f)
+
+                new_end = dur - end - diff
+
+                if new_end < start:
+                    continue
+
+                ss = np.random.uniform(start, new_end)
+
+                cmd = cs.process_segment(ss, diff, f, bitrate, outfile)
+                # print()
+                # print('dur', dur)
+                # print()
+                # print('ss', ss)
+                # print()
+                # print(cmd)
                 runcmd(cmd)
 
                 dur = get_duration(outfile)
@@ -261,12 +299,12 @@ class PMVC(object):
             for f in fs:
                 tf.write("file '{}'\n".format(f))
 
-    def join(self, force=None):
+    def join(self, force=False):
         LOG.info('JOINING')
 
         self.video = self.random_file.parent / VIDEO_FILENAME
 
-        if force is None:
+        if force is False:
             cmd = cs.join(self.random_file, self.video)
 
         else:
@@ -285,17 +323,24 @@ class PMVC(object):
 
     def finalize(self, ready_directory=None, offset=0, delete_work_dir=True):
         audio = self.audio
-
-        LOG.info('FINALIZE: Converting audio to AAC')
-        audio = self.directory / CONVERTED_AUDIO_FILENAME
-        cmd = 'ffmpeg -y -i "{}" -acodec aac "{}"'.format(self.audio, audio)
-        runcmd(cmd)
-
         final_file = self.directory / FINAL_FILENAME
 
-        LOG.info('FINALIZE: Joining audio and video')
-        cmd = cs.join_audio_video(offset, self.video, audio, final_file)
-        runcmd(cmd)
+        if self.audio.exists():
+            LOG.info('FINALIZE: Converting audio to AAC')
+            audio = self.directory / CONVERTED_AUDIO_FILENAME
+            cmd = 'ffmpeg -y -i "{}" -acodec aac "{}"'.format(self.audio, audio)
+            runcmd(cmd)
+
+            LOG.info('FINALIZE: Joining audio and video')
+            cmd = cs.join_audio_video(offset, self.video, audio, final_file)
+            runcmd(cmd)
+
+        else:
+            shutil.copy(
+                str(self.video),
+                str(final_file)
+            )
+
 
         if ready_directory is not None:
             ready_directory = Path(ready_directory)
@@ -310,7 +355,7 @@ class PMVC(object):
             )
             shutil.copy(
                 str(self.directory / 'debug.txt'),
-                str(ready_directory  / '{}.txt'.format(self.directory.name))
+                str(ready_directory / '{}.txt'.format(self.directory.name))
             )
 
             if delete_work_dir:

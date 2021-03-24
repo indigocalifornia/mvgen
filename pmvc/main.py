@@ -23,6 +23,9 @@ def check_bpm(bpm):
 
 
 def check_force(force):
+    if force is False:
+        return
+
     if force is not None:
         assert len(force) == 2, '--force must have exactly two elements.'
 
@@ -35,6 +38,8 @@ def make(
     force,
     offset,
     delete_work_dir,
+    start,
+    end,
     segment_duration,
     segment_start,
     segment_end,
@@ -63,7 +68,9 @@ def make(
         force_segment=force_segment,
         segment_duration=segment_duration,
         segment_start=segment_start,
-        segment_end=segment_end
+        segment_end=segment_end,
+        start=start,
+        end=end
     )
 
     p.make_join_file()
@@ -109,6 +116,16 @@ def parse_args(config):
         '--delete_work_dir', default=config['delete_work_dir'],
         action='store_true',
         help='Delete working directory.'
+    )
+    parser.add_argument(
+        '--start', type=float,
+        default=config['start'],
+        help='Position from beginning of raw video to process from.'
+    )
+    parser.add_argument(
+        '--end', type=float,
+        default=config['end'],
+        help='Position from end of raw video to process to.'
     )
     parser.add_argument(
         '--offset', type=float, default=config['offset'],
@@ -177,6 +194,8 @@ def run(config):
         force=args.force,
         offset=args.offset,
         delete_work_dir=args.delete_work_dir,
+        start=args.start,
+        end=args.end,
         segment_duration=args.segment_duration,
         segment_start=args.segment_start,
         segment_end=args.segment_end,
