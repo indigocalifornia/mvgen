@@ -11,7 +11,7 @@ requirements = [
     'pandas==0.23.4',
     'pyaml==17.12.1',
     'PyWavelets==1.0.1',
-    'PyYAML==3.13',
+    'PyYAML==5.4',
     'scipy==1.1.0',
     'tqdm==4.28.1',
 ]
