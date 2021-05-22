@@ -22,7 +22,7 @@ def make_segments_gif(*args):
 
 def process_segment(*args):
     return (
-        'ffmpeg -y -hwaccel cuvid -c:v h264_cuvid -vsync 0 -ss {} -t {} -i "{}" -an -vb {} -mbd rd'
+        'ffmpeg -y -hwaccel cuvid -c:v h264_cuvid -vsync 0 -ss {} -t {} -i "{}" -vb {} -mbd rd'
         ' -trellis 2 -cmp 2 -subcmp 2 -g 100 -c:v h264_nvenc -f mpeg "{}"'
     ).format(*args)
 
@@ -48,7 +48,14 @@ def join_force(**kwargs):
 def join_audio_video(*args):
     return (
         'ffmpeg -y -itsoffset {} -i "{}" -i "{}" -vcodec copy -acodec copy'
-        ' -shortest "{}"'
+        ' -shortest -map 0:v:0 -map 1:a:0 "{}"'
+    ).format(*args)
+
+
+def join_audio_video_mix(*args):
+    return (
+        'ffmpeg -y -itsoffset {} -i "{}" -i "{}" -vcodec copy'
+        ' -shortest -filter_complex amix "{}"'
     ).format(*args)
 
 

@@ -150,7 +150,7 @@ class PMVC(object):
         shutil.copy(str(audio), str(new_audio))
         audio = new_audio
 
-        with open(str(self.debug_file), 'w') as tf:
+        with open(str(self.debug_file), 'w', encoding='utf-8') as tf:
             tf.write('{}\n'.format(audio.name))
 
         if audio.suffix != '.wav':
@@ -321,7 +321,10 @@ class PMVC(object):
 
         runcmd(cmd)
 
-    def finalize(self, ready_directory=None, offset=0, delete_work_dir=True):
+    def finalize(
+        self, ready_directory=None, offset=0, delete_work_dir=True,
+        original_audio=False
+    ):
         audio = self.audio
         final_file = self.directory / FINAL_FILENAME
 
@@ -332,7 +335,12 @@ class PMVC(object):
             runcmd(cmd)
 
             LOG.info('FINALIZE: Joining audio and video')
-            cmd = cs.join_audio_video(offset, self.video, audio, final_file)
+
+            if not original_audio:
+                cmd = cs.join_audio_video(offset, self.video, audio, final_file)
+            else:
+                cmd = cs.join_audio_video_mix(offset, self.video, audio, final_file)
+
             runcmd(cmd)
 
         else:

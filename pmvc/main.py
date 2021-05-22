@@ -47,7 +47,8 @@ def make(
     raw_directory,
     segments_directory,
     work_directory,
-    ready_directory
+    ready_directory,
+    original_audio
 ):
     started = datetime.datetime.now()
 
@@ -80,7 +81,8 @@ def make(
     p.finalize(
         ready_directory=ready_directory,
         offset=offset,
-        delete_work_dir=delete_work_dir
+        delete_work_dir=delete_work_dir,
+        original_audio=original_audio
     )
 
     finished = datetime.datetime.now()
@@ -113,7 +115,7 @@ def parse_args(config):
     '''
     parser.add_argument('--bpm', help=h)
     parser.add_argument(
-        '--delete_work_dir', default=config['delete_work_dir'],
+        '--keep_work_dir', default=config['keep_work_dir'],
         action='store_true',
         help='Delete working directory.'
     )
@@ -177,6 +179,12 @@ def parse_args(config):
         default=config['ready_directory'],
         help='Directory for final videos.'
     )
+    parser.add_argument(
+        '--original_audio',
+        default=config.get('original_audio'),
+        action='store_true',
+        help='Directory for final videos.'
+    )
 
     args, _ = parser.parse_known_args()
 
@@ -193,7 +201,7 @@ def run(config):
         bpm=args.bpm,
         force=args.force,
         offset=args.offset,
-        delete_work_dir=args.delete_work_dir,
+        delete_work_dir=not args.keep_work_dir,
         start=args.start,
         end=args.end,
         segment_duration=args.segment_duration,
@@ -203,5 +211,6 @@ def run(config):
         raw_directory=args.raw_directory,
         segments_directory=args.segments_directory,
         work_directory=args.work_directory,
-        ready_directory=args.ready_directory
+        ready_directory=args.ready_directory,
+        original_audio=args.original_audio
     )

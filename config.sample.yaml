@@ -6,10 +6,11 @@ audio: /path/to/file
 
 duration: 2
 bpm: null
-delete_work_dir: false
+keep_work_dir: false
 offset: 0
 force: null
 segment_duration: 2
 segment_start: 0
 segment_end: 0
 force_segment: false
+original_audio: false
