@@ -297,6 +297,7 @@ class PMVC(object):
 
         with open(str(self.random_file), 'w') as tf:
             for f in fs:
+                f = os.path.relpath(f, self.directory)
                 tf.write("file '{}'\n".format(f))
 
     def join(self, force=False):

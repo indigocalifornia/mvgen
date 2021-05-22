@@ -51,6 +51,9 @@ def runcmd(cmd):
 
 
 def modify_filename(filename, prefix=None, suffix=None):
+    whitelist = '. _-'
+    filename = re.sub(r'[^\w' + whitelist + ']', '---', filename)
+
     fname, fext = os.path.splitext(filename)
     if prefix is not None:
         fname = '{}_{}'.format(prefix, fname)
