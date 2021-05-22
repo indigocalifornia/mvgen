@@ -13,4 +13,4 @@ segment_duration: 2
 segment_start: 0
 segment_end: 0
 force_segment: false
-original_audio: false
+audio_mode: "audio"

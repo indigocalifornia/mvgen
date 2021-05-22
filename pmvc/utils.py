@@ -3,8 +3,14 @@
 import re
 import os
 import subprocess
+import logging
 
 from pmvc import commands as cs
+
+LOG = logging.getLogger(__name__)
+LOG.handlers = []
+LOG.addHandler(logging.StreamHandler())
+LOG.setLevel(logging.INFO)
 
 
 def natural_keys(text):
@@ -40,13 +46,16 @@ def get_bitrate(filename):
 
 
 def runcmd(cmd):
+    # LOG.info(cmd)
     # with open(os.devnull, 'w') as stderr:
     #     subprocess.check_output(cmd, stderr=stderr)
     log = os.devnull
     with open(log, 'a') as stdout:
-        subprocess.Popen(
+        res = subprocess.Popen(
             cmd, stdout=stdout, stderr=subprocess.STDOUT, shell=True
         ).communicate()
+
+        # LOG.info(res)
         # os.system(cmd)
 
 

@@ -48,7 +48,7 @@ def join_force(**kwargs):
 def join_audio_video(*args):
     return (
         'ffmpeg -y -itsoffset {} -i "{}" -i "{}" -vcodec copy -acodec copy'
-        ' -shortest -map 0:v:0 -map 1:a:0 "{}"'
+        ' -shortest -map 0:v:0 -map {}:a:0 "{}"'
     ).format(*args)
 
 

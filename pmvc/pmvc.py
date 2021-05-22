@@ -297,7 +297,7 @@ class PMVC(object):
 
         with open(str(self.random_file), 'w') as tf:
             for f in fs:
-                f = os.path.relpath(f, self.directory)
+                f = os.path.abspath(f)
                 tf.write("file '{}'\n".format(f))
 
     def join(self, force=False):
@@ -324,7 +324,7 @@ class PMVC(object):
 
     def finalize(
         self, ready_directory=None, offset=0, delete_work_dir=True,
-        original_audio=False
+        audio_mode='audio'
     ):
         audio = self.audio
         final_file = self.directory / FINAL_FILENAME
@@ -337,10 +337,16 @@ class PMVC(object):
 
             LOG.info('FINALIZE: Joining audio and video')
 
-            if not original_audio:
-                cmd = cs.join_audio_video(offset, self.video, audio, final_file)
-            else:
+            if audio_mode == 'audio':
+                channel = 1
+                cmd = cs.join_audio_video(offset, self.video, audio, channel, final_file)
+            elif audio_mode == 'original':
+                channel = 0
+                cmd = cs.join_audio_video(offset, self.video, audio, channel, final_file)
+            elif audio_mode == 'mix':
                 cmd = cs.join_audio_video_mix(offset, self.video, audio, final_file)
+            else:
+                raise ValueError(audio_mode)
 
             runcmd(cmd)
 

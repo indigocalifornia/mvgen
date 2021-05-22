@@ -48,7 +48,7 @@ def make(
     segments_directory,
     work_directory,
     ready_directory,
-    original_audio
+    audio_mode
 ):
     started = datetime.datetime.now()
 
@@ -82,7 +82,7 @@ def make(
         ready_directory=ready_directory,
         offset=offset,
         delete_work_dir=delete_work_dir,
-        original_audio=original_audio
+        audio_mode=audio_mode
     )
 
     finished = datetime.datetime.now()
@@ -180,10 +180,9 @@ def parse_args(config):
         help='Directory for final videos.'
     )
     parser.add_argument(
-        '--original_audio',
-        default=config.get('original_audio'),
-        action='store_true',
-        help='Directory for final videos.'
+        '--audio_mode', type=str,
+        default=config.get('audio_mode', 'audio'),
+        help='Audio mode. Valid values are "audio", "original" and "mix".'
     )
 
     args, _ = parser.parse_known_args()
@@ -212,5 +211,5 @@ def run(config):
         segments_directory=args.segments_directory,
         work_directory=args.work_directory,
         ready_directory=args.ready_directory,
-        original_audio=args.original_audio
+        audio_mode=args.audio_mode
     )
