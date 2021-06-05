@@ -523,3 +523,11 @@ FodyWeavers.xsd
 *.sln.iml
 
 *.ipynb
+pmvc/__main__.py
+config1.yaml
+generate.py
+pmvc-script.py
+setup2.py
+test.py
+pmvc/config - Copy (2).yaml
+scripts/pmvc

@@ -4,6 +4,7 @@ import re
 import os
 import subprocess
 import logging
+import unidecode
 
 from pmvc import commands as cs
 
@@ -53,13 +54,34 @@ def runcmd(cmd):
     with open(log, 'a') as stdout:
         res = subprocess.Popen(
             cmd, stdout=stdout, stderr=subprocess.STDOUT, shell=True
-        ).communicate()
+        )
+
+        out, err = res.communicate()
+
+        if res.returncode != 0:
+            LOG.error(cmd)
 
         # LOG.info(res)
         # os.system(cmd)
 
 
+def checkcmd(cmd):
+    log = os.devnull
+    with open(log, 'a') as stdout:
+        res = subprocess.Popen(
+            cmd, stdout=stdout, stderr=subprocess.STDOUT, shell=True
+        )
+        res.communicate()
+
+    if res.returncode != 0:
+        LOG.error(cmd)
+
+    return res.returncode
+
+
 def modify_filename(filename, prefix=None, suffix=None):
+    filename = unidecode.unidecode_expect_ascii(filename)
+
     whitelist = '. _-'
     filename = re.sub(r'[^\w' + whitelist + ']', '---', filename)
 
@@ -86,3 +108,27 @@ def str2sec(s):
     else:
         s = s.rsplit(':')
         return 60. * float(s[0]) + float(s[1])
+
+
+def wslpath(path):
+    path = str(path)
+    cmd = cs.get_wslpath(path)
+    new_path = os.popen(cmd)
+    new_path = new_path.read().strip('\n')
+
+    return new_path
+
+
+def windowspath(path):
+    path = str(path)
+
+    if path.startswith('/mnt'):
+        new_path = path.replace('/mnt/', '')
+        new_path = new_path[0] + ':/' + new_path[1:]
+
+    else:
+        cmd = cs.get_windows_path(path)
+        new_path = os.popen(cmd)
+        new_path = new_path.read().strip('\n')
+
+    return new_path

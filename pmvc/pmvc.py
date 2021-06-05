@@ -13,12 +13,13 @@ import re
 
 from pathlib import Path
 from tqdm import tqdm
+from tempfile import mkstemp
 
 from pmvc import commands as cs
 from pmvc.audio import get_bpm, get_beats
 from pmvc.utils import (
     natural_keys, mkdir, get_duration, get_bitrate, runcmd, modify_filename,
-    str2sec
+    str2sec, checkcmd, windowspath, wslpath
 )
 
 
@@ -238,6 +239,17 @@ class PMVC(object):
         bitrate = np.max(bitrate)
         LOG.info('VIDEO: Max bitrate: {}'.format(bitrate))
 
+        # Check CUDA
+        f = segs[0]
+        filename = modify_filename(f.name)
+        _, outfile = mkstemp(suffix=Path(filename).suffix)
+        cmd = cs.process_segment(0, 1, f, bitrate, outfile)
+        returncode = checkcmd(cmd)
+        self.cuda = returncode == 0
+
+        if not self.cuda:
+            LOG.info('VIDEO: CUDA could not be resolved')
+
         total_dur = 0
         for i in tqdm(np.arange(len(beats) - 1)):
             diff = beats[i + 1] - total_dur
@@ -256,6 +268,12 @@ class PMVC(object):
                 ss = np.random.uniform(start, new_end)
 
                 cmd = cs.process_segment(ss, diff, f, bitrate, outfile)
+
+                if not self.cuda:
+                    cmd = cmd.replace('-hwaccel cuvid', '')
+                    cmd = cmd.replace('-c:v h264_cuvid', '')
+                    cmd = cmd.replace('-c:v h264_nvenc', '')
+
                 # print()
                 # print('dur', dur)
                 # print()
@@ -298,6 +316,8 @@ class PMVC(object):
         with open(str(self.random_file), 'w') as tf:
             for f in fs:
                 f = os.path.abspath(f)
+                if str(f).startswith('/'):
+                    f = windowspath(f)
                 tf.write("file '{}'\n".format(f))
 
     def join(self, force=False):
@@ -320,11 +340,16 @@ class PMVC(object):
                 height=height
             )
 
+        if not self.cuda:
+            cmd = cmd.replace('-hwaccel cuvid', '')
+            cmd = cmd.replace('-c:v h264_cuvid', '')
+            cmd = cmd.replace('-c:v h264_nvenc', '-c:v libx264')
+
         runcmd(cmd)
 
     def finalize(
         self, ready_directory=None, offset=0, delete_work_dir=True,
-        audio_mode='audio'
+        audio_mode='audio', convert=False
     ):
         audio = self.audio
         final_file = self.directory / FINAL_FILENAME
@@ -337,14 +362,20 @@ class PMVC(object):
 
             LOG.info('FINALIZE: Joining audio and video')
 
+            if convert:
+                vcodec = '-vcodec libx264 -crf 27 -preset veryfast'
+                LOG.info(f'FINALIZE: Converting video with {vcodec}')
+            else:
+                vcodec = '-vcodec copy'
+
             if audio_mode == 'audio':
                 channel = 1
-                cmd = cs.join_audio_video(offset, self.video, audio, channel, final_file)
+                cmd = cs.join_audio_video(offset, self.video, audio, vcodec, channel, final_file)
             elif audio_mode == 'original':
                 channel = 0
-                cmd = cs.join_audio_video(offset, self.video, audio, channel, final_file)
+                cmd = cs.join_audio_video(offset, self.video, audio, vcodec, channel, final_file)
             elif audio_mode == 'mix':
-                cmd = cs.join_audio_video_mix(offset, self.video, audio, final_file)
+                cmd = cs.join_audio_video_mix(offset, self.video, audio, vcodec, final_file)
             else:
                 raise ValueError(audio_mode)
 

@@ -3,7 +3,9 @@
 import datetime
 import logging
 
+from pathlib import Path
 from pmvc.pmvc import PMVC
+from pmvc.utils import wslpath
 
 
 LOG = logging.getLogger(__name__)
@@ -30,6 +32,14 @@ def check_force(force):
         assert len(force) == 2, '--force must have exactly two elements.'
 
 
+def check_path(path):
+    path = Path(path)
+    if not path.exists():
+        path = wslpath(str(path))
+
+    return path
+
+
 def make(
     sources,
     duration,
@@ -48,9 +58,16 @@ def make(
     segments_directory,
     work_directory,
     ready_directory,
-    audio_mode
+    audio_mode,
+    convert
 ):
     started = datetime.datetime.now()
+
+    if not Path(audio).exists():
+        raw_directory = wslpath(raw_directory)
+        work_directory = wslpath(work_directory)
+        ready_directory = wslpath(ready_directory)
+        audio = wslpath(audio)
 
     bpm = check_bpm(bpm)
     check_force(force)
@@ -78,20 +95,30 @@ def make(
 
     p.join(force=force)
 
-    p.finalize(
+    final_file = p.finalize(
         ready_directory=ready_directory,
         offset=offset,
         delete_work_dir=delete_work_dir,
-        audio_mode=audio_mode
+        audio_mode=audio_mode,
+        convert=convert
     )
 
     finished = datetime.datetime.now()
 
     LOG.info('COMPLETED: {}'.format(finished - started))
 
+    return {
+        'filename': final_file.name,
+        'filepath': str(final_file)
+    }
+
 
 def parse_args(config):
     import argparse
+
+    if '__argv' in config:
+        import sys
+        sys.argv += config['__argv']
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -184,8 +211,14 @@ def parse_args(config):
         default=config.get('audio_mode', 'audio'),
         help='Audio mode. Valid values are "audio", "original" and "mix".'
     )
+    parser.add_argument(
+        '--convert', type=str,
+        default=config.get('convert', False)
+    )
 
     args, _ = parser.parse_known_args()
+
+    LOG.info(str(args.__dict__))
 
     return args
 
@@ -193,7 +226,7 @@ def parse_args(config):
 def run(config):
     args = parse_args(config)
 
-    make(
+    return make(
         sources=args.sources,
         duration=args.duration,
         audio=args.audio,
@@ -211,5 +244,6 @@ def run(config):
         segments_directory=args.segments_directory,
         work_directory=args.work_directory,
         ready_directory=args.ready_directory,
-        audio_mode=args.audio_mode
+        audio_mode=args.audio_mode,
+        convert=args.convert
     )

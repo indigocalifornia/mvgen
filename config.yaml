@@ -14,3 +14,4 @@ raw_directory: F:/projects/video/video/files/src
 segments_directory: F:/projects/video/video/files/segments
 work_directory: F:/projects/video/video/files/work
 ready_directory: F:/projects/video/video/files/ready
+convert: false
