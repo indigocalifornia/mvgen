@@ -19,7 +19,7 @@ from mvgen.utils import (
     natural_keys, mkdir, get_duration, get_bitrate, runcmd, modify_filename,
     str2sec, checkcmd, wslpath
 )
-from mvgen.variables import WSL, CUDA
+from mvgen.variables import WSL, CUDA, GCP_PROJECT_ID
 
 
 LOG = logging.getLogger(__name__)
@@ -76,6 +76,26 @@ def get_args(config, function):
     return args
 
 
+def parse_blob_uri(blob_path):
+    blob_path = blob_path[len('gs://'):]
+    slash_loc = blob_path.index('/')
+    bucket_name = blob_path[:slash_loc]
+    blob_name = blob_path[slash_loc + 1:] # /o/
+    return bucket_name, blob_name
+
+
+def download_gs_file(blob_uri, filename):
+    from google.cloud import storage
+
+    client = storage.Client(project=GCP_PROJECT_ID)
+    bucket, name = parse_blob_uri(blob_uri)
+    blob = storage.Blob(name=name, bucket=client.get_bucket(bucket))
+
+    blob.download_to_filename(filename)
+
+    return blob
+
+
 @attr.s
 class MVGen(object):
     src_directory = attr.ib(converter=convert_path)
@@ -91,7 +111,7 @@ class MVGen(object):
         self.random_file = self.directory / RANDOM_FILENAME
         self.video = self.directory / VIDEO_FILENAME
 
-    def load_audio(self, audio, bpm=None):
+    def load_audio(self, audio, bpm=None, delete_original_audio=False):
         """Load and process audio.
 
         Args:
@@ -110,13 +130,13 @@ class MVGen(object):
         mkdir(self.directory)
 
         self.debug_file = self.directory / DEBUG_FILENAME
-        self.audio = self._copy_audio(audio)
+        self.audio = self._copy_audio(
+            audio, delete_original_audio=delete_original_audio
+        )
         self.beats = self._process_audio(self.audio, bpm)
 
-    def _copy_audio(self, audio):
-        audio = convert_path(audio, directory=False)
-
-        if not audio.exists():
+    def _copy_audio(self, audio, delete_original_audio):
+        if not os.path.exists(audio) and not str(audio).startswith('gs://'):
             with open(str(self.debug_file), 'w', encoding='utf-8') as file:
                 file.write(f'Audio: {audio}\n')
             return audio
@@ -126,11 +146,25 @@ class MVGen(object):
                 [i for i in audio.iterdir() if os.path.isfile(i)]
             )
 
-        audio_name = modify_filename(audio.name)
+        audio_name = modify_filename(os.path.basename(audio))
         new_audio = self.directory / audio_name
+
         LOG.info(f'AUDIO: Copying {audio} to {new_audio}')
-        shutil.copy(str(audio), str(new_audio))
+        if str(audio).startswith('gs://'):
+            blob = download_gs_file(str(audio), new_audio)
+        else:
+            shutil.copy(str(audio), str(new_audio))
+
+        if delete_original_audio:
+            LOG.info(f'AUDIO: Deleting original audio {audio}')
+            if str(audio).startswith('gs://'):
+                blob.delete()
+            else:
+                audio.unlink()
+
         audio = new_audio
+
+        audio = convert_path(audio, directory=False)
 
         with open(str(self.debug_file), 'w', encoding='utf-8') as file:
             file.write(f'Audio: {audio}\n')
@@ -163,6 +197,8 @@ class MVGen(object):
                     wav_audio = audio.parent / WAV_FILENAME
                     cmd = cs.convert_to_wav(audio, wav_audio)
                     runcmd(cmd)
+                else:
+                    wav_audio = audio
 
                 bpm = get_bpm(str(wav_audio))
                 bpm = np.round(bpm)
@@ -194,7 +230,7 @@ class MVGen(object):
         beats = self.beats[::duration]
         limit = len(beats) + 1
 
-        LOG.info('VIDEO: Source: {}'.format([i.name for i in src_paths]))
+        LOG.info('VIDEO: Sources: {}'.format([i.name for i in src_paths]))
         segs = get_random_files(src_paths, limit)
 
         total_dur = 0
@@ -243,7 +279,7 @@ class MVGen(object):
                 tf.write("{} : {}\n".format(d, file.name))
 
     def make_join_file(self):
-        LOG.info('VIDEO: MAKING JOIN FILE')
+        LOG.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
 
         self.random_file = self.directory / RANDOM_FILENAME
 
@@ -258,12 +294,12 @@ class MVGen(object):
                 tf.write("file '{}'\n".format(f))
 
     def join(self, force=False, convert=False):
-        LOG.info('VIDEO: JOINING')
-
         if not CUDA:
             LOG.info('VIDEO: Not using CUDA')
 
         self.video = self.directory / VIDEO_FILENAME
+
+        LOG.info(f'VIDEO: JOINING {self.random_file} into {self.video}')
 
         if force:
             LOG.info('FORCING SIZE: {}'.format(force))
@@ -287,12 +323,17 @@ class MVGen(object):
             new_audio = self.directory / CONVERTED_AUDIO_FILENAME
 
             if self.audio != new_audio:
-                LOG.info('FINALIZE: Converting audio to AAC')
-                cmd = cs.convert_audio(self.audio, new_audio, 'aac')
+                acodec = 'aac'
+                LOG.info(f'FINALIZE: Converting audio {self.audio} to {acodec}')
+                cmd = cs.convert_audio(
+                    input_file=self.audio,
+                    output_file=new_audio,
+                    acodec=acodec
+                )
                 runcmd(cmd)
                 self.audio = new_audio
 
-            LOG.info('FINALIZE: Joining audio and video')
+            LOG.info(f'FINALIZE: Joining audio and video using audio mode {audio_mode}')
 
             if audio_mode == 'audio':
                 channel = 1
@@ -322,6 +363,8 @@ class MVGen(object):
 
 
         if ready_directory is not None:
+            LOG.info(f'FINALIZE: Moving to ready directory {ready_directory}')
+
             ready_directory = convert_path(ready_directory)
 
             video_suffix = os.path.splitext(FINAL_FILENAME)[-1]
