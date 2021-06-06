@@ -43,13 +43,13 @@ def convert_uid(uid):
     return uid
 
 
-def convert_path(path, mkdir=True):
+def convert_path(path, directory=True):
     if WSL:
         path = wslpath(path)
 
     path = Path(path)
 
-    if mkdir:
+    if directory:
         mkdir(path)
 
     return path
@@ -114,7 +114,7 @@ class MVGen(object):
         self.beats = self._process_audio(self.audio, bpm)
 
     def _copy_audio(self, audio):
-        audio = convert_path(audio, mkdir=False)
+        audio = convert_path(audio, directory=False)
 
         if not audio.exists():
             with open(str(self.debug_file), 'w', encoding='utf-8') as file:
