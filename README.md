@@ -1,7 +1,7 @@
-# pmvc
+# mvgen
 
 ## Description
-pmvc (PMV Creator) generates PMVs for you in an automated fashion. Given some video sources
+`mvgen` generates video mixes for you in an automated fashion. Given some video sources
 and an audio file, it will randomly select parts of those videos and collect them together
 in a single music video.
 
@@ -14,19 +14,13 @@ in a single music video.
 Installation requirements are outlined in `setup.py`. Navigate to the repository folder
 and run `python setup.py install`:
 
-```
-git clone https://github.com/indigocalifornia/pmvc.git
-cd pmvc
-python setup.py install
-```
-
 ## Usage
 ### Script
 Easiest way to use it is to run as a standalone Python script.
 
 1. Order your video sources by folder. E.g. if you have a collection of videos you want to use
-in a single PMV, put in a location with structure `raw_directory/vidz/`, where `vidz` will be name of your
-PMV *source*, e.g. `/home/user/raw/vidz`.
+in a single mix, put in a location with structure `src_directory/vidz/`, where `vidz` will be name of your
+mix *source*, e.g. `/home/user/raw/vidz`.
 
 2. Modify `config.yaml` with your settings. As a bare minimum you will need to change paths to
 to "raw", "segments", "work" and "ready" directories, and path to audio file.
@@ -58,7 +52,7 @@ video segment will last 2 audio beats. Default is 2.
 
 **offset**: Audio offset. Use it if audio appears to be out of sync with the video. Default is 0.
 
-**force**: Force video dimensions. Sometimes the final PMV can be glitchy if original videos have different sizes. Use this
+**force**: Force video dimensions. Sometimes the final mix can be glitchy if original videos have different sizes. Use this
 parameter to use fixed dimensions encoding. Must be include to numbers for width and height, e.g. `--force 1280 720` will
 result in a 1280x720 video. Default is no forcing.
 
@@ -70,10 +64,10 @@ result in a 1280x720 video. Default is no forcing.
 
 **force_segment**: Force segmentation even if segments already exist. Default is false.
 
-3. Run `python pmvc.py -s vidz` to create PMV from videos in the `vidz` source (files in the
-`/home/user/raw/viz` folder). You can have multiple sources, e.g. `python pmvc.py -s vidz highdef`.
+3. Run `python main.py -s vidz` to create mix from videos in the `vidz` source (files in the
+`/home/user/raw/viz` folder). You can have multiple sources, e.g. `python main.py -s vidz highdef`.
 
-4. Settings can be overridden with command-line parameters, e.g. `python pmvc.py -s vidz --bpm 145`.
+4. Settings can be overridden with command-line parameters, e.g. `python main.py -s vidz --bpm 145`.
 
 5. By default, the script tries to load config file in the same directory. A custom config can be passed using `--config`
 argument.
@@ -104,24 +98,17 @@ force_segment: false
 and run the script with `python -s vidz`. If later you want to run the same source with different file, you can just run
 `python -s viz --audio /home/user/audio/song2.mp3 --bpm 145`.
 
-The generated PMV will be in `/home/user/ready` with a unique name. In addition, you will find a text file with the same name that includes name of audio used and timestamps of the videos used (named using `{counter}_{original filename}_{segment_counter}` pattern).
+The generated mix will be in `/home/user/ready` with a unique name. In addition, you will find a text file with the same name that includes name of audio used and timestamps of the videos used (named using `{counter}_{original filename}_{segment_counter}` pattern).
 
 ### Package
-You can also import `pmvc` as a package.
+You can also import `mvgen` as a package.
 ```
-from pmvc.pmvc import PMVC
+from mvgen.mvgen import MVGen
 
-p = PMVC(...)
-p.load_audio(...)
-p.generate(...)
-p.make_join_file()
-p.join(...)
-p.finalize(...)
+g = MVGen(...)
+g.load_audio(...)
+g.generate(...)
+g.make_join_file()
+g.join(...)
+g.finalize(...)
 ```
-
-# Support
-Feel free to contribute by making pull requests.
-
-Ask questions on Reddit: [https://www.reddit.com/r/PMVGeneration](https://www.reddit.com/r/PMVGeneration)
-
-Support me on Patreon: [https://www.patreon.com/indigocalifornia](https://www.patreon.com/indigocalifornia)
