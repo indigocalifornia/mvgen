@@ -53,7 +53,7 @@ def handle_command(cmd):
 
 @handle_args_decorator(['src', 'dest'], handle_path, handle_command)
 def convert_to_wav(src, dest):
-    cmd = f'ffmpeg -y -i "{src}" -af silenceremove=1:0:-50dB "{dest}"'
+    cmd = f'ffmpeg -y -hide_banner -loglevel error -i "{src}" -af silenceremove=1:0:-50dB "{dest}"'
 
     return cmd
 
@@ -67,7 +67,7 @@ def process_segment(start, length, input_file, bitrate, output):
 
     hwaccel = input_codec = output_codec = ''
 
-    cmd = f'ffmpeg -y {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" {vb} -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {output_codec} -f mpeg "{output}"'
+    cmd = f'ffmpeg -y -hide_banner -loglevel error {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" {vb} -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {output_codec} -f mpeg "{output}"'
 
     return cmd
 
@@ -99,12 +99,12 @@ def join(input_file, output, force=False, convert=False):
         hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda'
         output_codec = '-c:v copy'
 
-    return f'ffmpeg -y {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} {force_params} "{output}"'
+    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} {force_params} "{output}"'
 
 
 @handle_args_decorator(['input_file', 'output_file'], handle_path, handle_command)
 def convert_audio(input_file, output_file, acodec):
-    cmd = f'ffmpeg -y -i "{input_file}" -acodec {acodec} "{output_file}"'
+    cmd = f'ffmpeg -y -hide_banner -loglevel error -i "{input_file}" -acodec {acodec} "{output_file}"'
     return cmd
 
 
@@ -115,7 +115,7 @@ def join_audio_video(offset, video, audio, channel, output):
     else:
         mapping = f'-map 0:v:0 -map {channel}:a:0'
 
-    return f'ffmpeg -y -itsoffset {offset} -i "{video}" -i "{audio}" -vcodec copy -acodec copy -shortest {mapping} "{output}"'
+    return f'ffmpeg -y -hide_banner -loglevel error -itsoffset {offset} -i "{video}" -i "{audio}" -vcodec copy -acodec copy -shortest {mapping} "{output}"'
 
 
 @handle_args_decorator(['path'], handle_path, handle_command)
