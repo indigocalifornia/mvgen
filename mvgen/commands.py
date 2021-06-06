@@ -93,10 +93,14 @@ def join(input_file, output, force=False, convert=False):
             hwaccel = ''
             output_codec = '-c:v libx264 -crf 27 -preset veryfast'
     elif convert:
-        hwaccel = ''
-        output_codec = '-c:v libx264 -crf 27 -preset veryfast'
+        if CUDA:
+            hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda'
+            output_codec = '-c:v h264_nvenc'
+        else:
+            hwaccel = ''
+            output_codec = '-c:v libx264 -crf 27 -preset veryfast'
     else:
-        hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda'
+        hwaccel = ''
         output_codec = '-c:v copy'
 
     return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} {force_params} "{output}"'
