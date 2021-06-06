@@ -17,12 +17,12 @@ requirements = [
 ]
 
 setup(
-    name='pmvc',
+    name='mvgen',
     version=version,
     description=(
-        'A utility that creates pmv videos.'),
+        'A utility that creates video mixes.'),
     author='indigocalifornia',
-    url='https://github.com/indigocalifornia/pmvc',
+    url='https://github.com/indigocalifornia/',
     packages=find_packages(),
     include_package_data=True,
     python_requires='>=3.6.7',

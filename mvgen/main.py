@@ -4,8 +4,8 @@ import datetime
 import logging
 
 from pathlib import Path
-from pmvc.pmvc import PMVC
-from pmvc.utils import wslpath
+from mvgen.mvgen import MVGen
+from mvgen.utils import wslpath
 
 
 LOG = logging.getLogger(__name__)

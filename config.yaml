@@ -1,17 +1,12 @@
 duration: 2
-audio: F:/projects/video/video/audio/concorde.m4a
+audio: F:/projects/video/video/audio/cut_Jason Risk & Jacob Rodi - JUMP, JUMP!  (Original Mix)-v3zaUpZY4NM.webm
 bpm: null
-keep_work_dir: false
+delete_work_dir: false
 offset: 0
 force: false
-start: 10
-end: 10
-segment_duration: 2
-segment_start: 0
-segment_end: 0
-force_segment: false
-raw_directory: F:/projects/video/video/files/src
-segments_directory: F:/projects/video/video/files/segments
+start: 1
+end: 1
+src_directory: F:/projects/video/video/files/src
 work_directory: F:/projects/video/video/files/work
 ready_directory: F:/projects/video/video/files/ready
 convert: false

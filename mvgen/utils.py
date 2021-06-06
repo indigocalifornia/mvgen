@@ -6,12 +6,19 @@ import subprocess
 import logging
 import unidecode
 
-from pmvc import commands as cs
+from mvgen import commands as cs
 
-LOG = logging.getLogger(__name__)
-LOG.handlers = []
-LOG.addHandler(logging.StreamHandler())
-LOG.setLevel(logging.INFO)
+
+def get_logger(name, level=logging.INFO):
+    LOG = logging.getLogger(name)
+    LOG.handlers = []
+    LOG.addHandler(logging.StreamHandler())
+    LOG.setLevel(level)
+
+    return LOG
+
+
+LOG = get_logger(__name__)
 
 
 def natural_keys(text):
@@ -47,22 +54,19 @@ def get_bitrate(filename):
 
 
 def runcmd(cmd):
-    # LOG.info(cmd)
-    # with open(os.devnull, 'w') as stderr:
-    #     subprocess.check_output(cmd, stderr=stderr)
+    LOG.debug(cmd)
+
     log = os.devnull
     with open(log, 'a') as stdout:
         res = subprocess.Popen(
-            cmd, stdout=stdout, stderr=subprocess.STDOUT, shell=True
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True
         )
 
         out, err = res.communicate()
 
         if res.returncode != 0:
-            LOG.error(cmd)
-
-        # LOG.info(res)
-        # os.system(cmd)
+            LOG.error(f'CMD ERROR: {cmd}')
+            LOG.error(out.decode('utf-8'))
 
 
 def checkcmd(cmd):
@@ -115,20 +119,5 @@ def wslpath(path):
     cmd = cs.get_wslpath(path)
     new_path = os.popen(cmd)
     new_path = new_path.read().strip('\n')
-
-    return new_path
-
-
-def windowspath(path):
-    path = str(path)
-
-    if path.startswith('/mnt'):
-        new_path = path.replace('/mnt/', '')
-        new_path = new_path[0] + ':/' + new_path[1:]
-
-    else:
-        cmd = cs.get_windows_path(path)
-        new_path = os.popen(cmd)
-        new_path = new_path.read().strip('\n')
 
     return new_path
