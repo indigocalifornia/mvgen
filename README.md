@@ -22,7 +22,7 @@ Easiest way to use it is to run as a standalone Python script.
 in a single mix, put in a location with structure `src_directory/vidz/`, where `vidz` will be name of your
 mix *source*, e.g. `/home/user/raw/vidz`.
 
-2. Modify `config.yaml` with your settings. As a bare minimum you will need to change paths to
+2. Modify `config.yaml` file with your settings. As a bare minimum you will need to change paths to
 to "raw", "segments", "work" and "ready" directories, and path to audio file.
 
 **raw_directory**: Absolute path to video sources. In the example above it would be `/home/user/raw`
