@@ -44,13 +44,13 @@ def convert_uid(uid):
     return uid
 
 
-def convert_path(path, directory=True):
+def convert_path(path, make_directory=True):
     if WSL:
         path = wslpath(path)
 
     path = Path(path)
 
-    if directory:
+    if make_directory:
         mkdir(path)
 
     return path
@@ -102,13 +102,20 @@ def download_gs_dir(blob_uri, directory):
 
     client = storage.Client(project=GCP_PROJECT_ID)
     bucket_name, prefix = parse_blob_uri(blob_uri)
-    bucket = client.get_bucket(bucket_name)
-
-    blobs = bucket.list_blobs(prefix=prefix)
+    blobs =  client.get_bucket(bucket_name).list_blobs(prefix=prefix)
 
     for blob in blobs:
         name = modify_filename(os.path.basename(blob.name))
         blob.download_to_filename(os.path.join(directory, name))
+
+
+def upload_gs_file(filename, blob_uri):
+    from google.cloud import storage
+
+    client = storage.Client(project=GCP_PROJECT_ID)
+    bucket_name, prefix = parse_blob_uri(blob_uri)
+    blob = client.get_bucket(bucket_name).blob(prefix)
+    blob.upload_from_filename(filename)
 
 
 @attr.s
@@ -178,7 +185,7 @@ class MVGen(object):
 
         audio = new_audio
 
-        audio = convert_path(audio, directory=False)
+        audio = convert_path(audio, make_directory=False)
 
         with open(str(self.debug_file), 'w', encoding='utf-8') as file:
             file.write(f'Audio: {audio}\n')
@@ -311,6 +318,7 @@ class MVGen(object):
                 tf.write("{} : {}\n".format(d, file.name))
 
         for directory in delete_directories:
+            LOG.info(f'VIDEO: Deleting temporary directory {directory}')
             shutil.rmtree(directory)
 
     def make_join_file(self):
@@ -398,29 +406,40 @@ class MVGen(object):
 
 
         if ready_directory is not None:
-            LOG.info(f'FINALIZE: Moving to ready directory {ready_directory}')
-
-            ready_directory = convert_path(ready_directory)
+            LOG.info(f'FINALIZE: Moving results to ready directory {ready_directory}')
 
             video_suffix = os.path.splitext(FINAL_FILENAME)[-1]
-            ready_file = ready_directory / (self.directory.name + video_suffix)
-            shutil.copy(
-                str(final_file),
-                str(ready_file)
-            )
-
             debug_suffix = os.path.splitext(DEBUG_FILENAME)[-1]
-            debug_file = ready_directory / (self.directory.name + debug_suffix)
 
-            shutil.copy(
-                str(self.directory / DEBUG_FILENAME),
-                str(debug_file)
-            )
+            debug_file = self.directory / DEBUG_FILENAME
+
+            if ready_directory.startswith('gs:'):
+                ready_file = f'{ready_directory}/{self.uid}{video_suffix}'
+                ready_debug_file = f'{ready_directory}/{self.uid}{debug_suffix}'
+
+                LOG.info(f'FINALIZE: Uploading {final_file} to {ready_file}')
+                upload_gs_file(str(final_file), str(ready_file))
+
+                LOG.info(f'FINALIZE: Uploading {debug_file} to {ready_debug_file}')
+                upload_gs_file(str(debug_file), str(ready_debug_file))
+            else:
+                ready_directory = convert_path(ready_directory)
+                ready_file = ready_directory / (self.directory.name + video_suffix)
+                ready_debug_file = ready_directory / (self.directory.name + debug_suffix)
+
+                LOG.info(f'FINALIZE: Moving {final_file} to {ready_file}')
+                shutil.copy(str(final_file), str(ready_file))
+
+                LOG.info(f'FINALIZE: Moving {debug_file} to {ready_debug_file}')
+                shutil.copy(str(debug_file), str(ready_debug_file))
 
             if delete_work_dir:
+                LOG.info(f'FINALIZE: Deleting work directory {self.directory}')
                 shutil.rmtree(str(self.directory))
 
-            return ready_file
+            final_file = ready_file
+
+        LOG.info(f'FINALIZE: Final file {final_file}')
 
         return final_file
 
