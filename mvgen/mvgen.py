@@ -345,7 +345,10 @@ class MVGen(object):
         LOG.info(f'VIDEO: JOINING {self.random_file} into {self.video}')
 
         if force:
-            LOG.info('FORCING SIZE: {}'.format(force))
+            LOG.info('VIDEO: FORCING SIZE: {}'.format(force))
+
+        if convert:
+            LOG.info('VIDEO: Converting to final codec')
 
         cmd = cs.join(
             input_file=self.random_file,
