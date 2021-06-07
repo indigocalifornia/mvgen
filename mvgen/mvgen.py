@@ -234,11 +234,12 @@ class MVGen(object):
 
     def generate(
         self, duration, sources=None, src_directory=None, src_paths=None,
-        start=0, end=0,
-        delete_original_video=False
+        start=0, end=0
     ):
         self.random_directory = self.directory / RANDOM_DIRECTORY_NAME
         mkdir(self.random_directory)
+
+        delete_directories = []
 
         if src_paths is None:
             src_directory = convert_path(src_directory)
@@ -253,6 +254,7 @@ class MVGen(object):
                     LOG.info(f'VIDEO: Downloading {src_path} to {local_directory}')
                     download_gs_dir(src_path, local_directory)
                     src_paths[i] = Path(local_directory)
+                    delete_directories.append(local_directory)
                 else:
                     src_paths[i] = convert_path(src_path)
 
@@ -308,9 +310,8 @@ class MVGen(object):
                 d = str(datetime.timedelta(seconds=d))
                 tf.write("{} : {}\n".format(d, file.name))
 
-        if delete_original_video:
-            for src_path in src_paths:
-                shutil.rmtree(src_path)
+        for directory in delete_directories:
+            shutil.rmtree(directory)
 
     def make_join_file(self):
         LOG.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
