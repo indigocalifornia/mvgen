@@ -11,7 +11,8 @@ import inspect
 
 from pathlib import Path
 from tqdm import tqdm
-from tempfile import mkstemp
+from tempfile import mkdtemp
+from copy import deepcopy
 
 from mvgen import commands as cs
 from mvgen.audio import get_bpm, get_beats
@@ -96,9 +97,22 @@ def download_gs_file(blob_uri, filename):
     return blob
 
 
+def download_gs_dir(blob_uri, directory):
+    from google.cloud import storage
+
+    client = storage.Client(project=GCP_PROJECT_ID)
+    bucket_name, prefix = parse_blob_uri(blob_uri)
+    bucket = client.get_bucket(bucket_name)
+
+    blobs = bucket.list_blobs(prefix=prefix)
+
+    for blob in blobs:
+        name = modify_filename(os.path.basename(blob.name))
+        blob.download_to_filename(os.path.join(directory, name))
+
+
 @attr.s
 class MVGen(object):
-    src_directory = attr.ib(converter=convert_path)
     work_directory = attr.ib(converter=convert_path)
     uid = attr.ib(default=None, converter=convert_uid)
 
@@ -219,18 +233,34 @@ class MVGen(object):
         return beats
 
     def generate(
-        self, sources, duration, start=0, end=0
+        self, duration, sources=None, src_directory=None, src_paths=None,
+        start=0, end=0,
+        delete_original_video=False
     ):
-
         self.random_directory = self.directory / RANDOM_DIRECTORY_NAME
         mkdir(self.random_directory)
 
-        src_paths = [self.src_directory / i for i in sources]
+        if src_paths is None:
+            src_directory = convert_path(src_directory)
+            src_paths = [src_directory / i for i in sources]
+
+            LOG.info(f'VIDEO: Sources {sources} in {src_directory}')
+        else:
+            src_paths = deepcopy(src_paths)
+            for i, src_path in enumerate(src_paths):
+                if src_path.startswith('gs:'):
+                    local_directory = mkdtemp()
+                    LOG.info(f'VIDEO: Downloading {src_path} to {local_directory}')
+                    download_gs_dir(src_path, local_directory)
+                    src_paths[i] = Path(local_directory)
+                else:
+                    src_paths[i] = convert_path(src_path)
+
+                    LOG.info(f'VIDEO: Using local source path {src_path}')
 
         beats = self.beats[::duration]
         limit = len(beats) + 1
 
-        LOG.info('VIDEO: Sources: {}'.format([i.name for i in src_paths]))
         segs = get_random_files(src_paths, limit)
 
         total_dur = 0
@@ -277,6 +307,10 @@ class MVGen(object):
             for file, d in results:
                 d = str(datetime.timedelta(seconds=d))
                 tf.write("{} : {}\n".format(d, file.name))
+
+        if delete_original_video:
+            for src_path in src_paths:
+                shutil.rmtree(src_path)
 
     def make_join_file(self):
         LOG.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
