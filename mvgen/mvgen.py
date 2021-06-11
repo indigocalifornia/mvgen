@@ -22,11 +22,12 @@ from mvgen.utils import (
 )
 from mvgen.variables import WSL, CUDA, GCP_PROJECT_ID
 
+logging.basicConfig(level=logging.INFO)
 
-LOG = logging.getLogger(__name__)
-LOG.handlers = []
-LOG.addHandler(logging.StreamHandler())
-LOG.setLevel(logging.INFO)
+# logging = logging.getLogger(__name__)
+# logging.handlers = []
+# logging.addHandler(logging.StreamHandler())
+# logging.setLevel(logging.INFO)
 
 DEBUG_FILENAME = 'debug.txt'
 RANDOM_DIRECTORY_NAME = 'random'
@@ -118,10 +119,16 @@ def upload_gs_file(filename, blob_uri):
     blob.upload_from_filename(filename)
 
 
+class NullNotifier:
+    def notify(self, *args, **kwargs):
+        pass
+
+
 @attr.s
 class MVGen(object):
     work_directory = attr.ib(converter=convert_path)
     uid = attr.ib(default=None, converter=convert_uid)
+    notifier = attr.ib(default=None)
 
     audio = None
     beats = None
@@ -131,6 +138,9 @@ class MVGen(object):
         self.directory = self.work_directory / self.uid
         self.random_file = self.directory / RANDOM_FILENAME
         self.video = self.directory / VIDEO_FILENAME
+
+        if self.notifier is None:
+            self.notifier = NullNotifier()
 
     def load_audio(self, audio, bpm=None, delete_original_audio=False):
         """Load and process audio.
@@ -148,6 +158,8 @@ class MVGen(object):
                     "auto": Audio is analyzed for beats
                     file path: Path to beats file
         """
+        self.notifier.notify({'status': 'processing-audio'})
+
         mkdir(self.directory)
 
         self.debug_file = self.directory / DEBUG_FILENAME
@@ -162,6 +174,8 @@ class MVGen(object):
                 file.write(f'Audio: {audio}\n')
             return audio
 
+        audio = convert_path(audio, make_directory=False)
+
         if os.path.isdir(audio):
             audio = np.random.choice(
                 [i for i in audio.iterdir() if os.path.isfile(i)]
@@ -170,14 +184,15 @@ class MVGen(object):
         audio_name = modify_filename(os.path.basename(audio))
         new_audio = self.directory / audio_name
 
-        LOG.info(f'AUDIO: Copying {audio} to {new_audio}')
+        logging.info(f'AUDIO: Copying {audio} to {new_audio}')
         if str(audio).startswith('gs://'):
+            self.notifier.notify({'status': 'downloading-audio'})
             blob = download_gs_file(str(audio), new_audio)
         else:
             shutil.copy(str(audio), str(new_audio))
 
         if delete_original_audio:
-            LOG.info(f'AUDIO: Deleting original audio {audio}')
+            logging.info(f'AUDIO: Deleting original audio {audio}')
             if str(audio).startswith('gs://'):
                 blob.delete()
             else:
@@ -185,17 +200,15 @@ class MVGen(object):
 
         audio = new_audio
 
-        audio = convert_path(audio, make_directory=False)
-
         with open(str(self.debug_file), 'w', encoding='utf-8') as file:
             file.write(f'Audio: {audio}\n')
 
         return audio
 
     def _process_audio(self, audio, bpm):
-        LOG.info(f'AUDIO: Processing {audio}')
+        logging.info(f'AUDIO: Processing {audio}')
         if Path(str(bpm)).exists():
-            LOG.info('AUDIO: Beats file: {}'.format(bpm))
+            logging.info('AUDIO: Beats file: {}'.format(bpm))
 
             with open(str(bpm), 'r') as text_file:
                 beats = text_file.read()
@@ -203,17 +216,17 @@ class MVGen(object):
             beats = [float(i) for i in beats.split(',')]
 
         elif bpm == 'beats':
-            LOG.info('AUDIO: Beats mode')
+            logging.info('AUDIO: Beats mode')
 
             beats = get_beats(str(audio))
             beats = [0] + beats
 
         else:
             if bpm is None or bpm == 'auto':
-                LOG.info('AUDIO: Detecting BPM')
+                logging.info('AUDIO: Detecting BPM')
 
                 if audio.suffix != '.wav':
-                    LOG.info('AUDIO: Converting to WAV')
+                    logging.info('AUDIO: Converting to WAV')
 
                     wav_audio = audio.parent / WAV_FILENAME
                     cmd = cs.convert_to_wav(audio, wav_audio)
@@ -226,7 +239,7 @@ class MVGen(object):
 
             bpm = float(bpm)
 
-            LOG.info('AUDIO: {} BPM'.format(bpm))
+            logging.info('AUDIO: {} BPM'.format(bpm))
 
             diff = 60. / bpm
 
@@ -243,6 +256,8 @@ class MVGen(object):
         self, duration, sources=None, src_directory=None, src_paths=None,
         start=0, end=0
     ):
+        self.notifier.notify({'status': 'processing-video'})
+
         self.random_directory = self.directory / RANDOM_DIRECTORY_NAME
         mkdir(self.random_directory)
 
@@ -252,20 +267,21 @@ class MVGen(object):
             src_directory = convert_path(src_directory)
             src_paths = [src_directory / i for i in sources]
 
-            LOG.info(f'VIDEO: Sources {sources} in {src_directory}')
+            logging.info(f'VIDEO: Sources {sources} in {src_directory}')
         else:
             src_paths = deepcopy(src_paths)
             for i, src_path in enumerate(src_paths):
                 if src_path.startswith('gs:'):
                     local_directory = mkdtemp()
-                    LOG.info(f'VIDEO: Downloading {src_path} to {local_directory}')
+                    logging.info(f'VIDEO: Downloading {src_path} to {local_directory}')
+                    self.notifier.notify({'status': 'downloading-video'})
                     download_gs_dir(src_path, local_directory)
                     src_paths[i] = Path(local_directory)
                     delete_directories.append(local_directory)
                 else:
                     src_paths[i] = convert_path(src_path)
 
-                    LOG.info(f'VIDEO: Using local source path {src_path}')
+                    logging.info(f'VIDEO: Using local source path {src_path}')
 
         beats = self.beats[::duration]
         limit = len(beats) + 1
@@ -277,6 +293,11 @@ class MVGen(object):
         for i in tqdm(np.arange(len(beats) - 1)):
             diff = beats[i + 1] - total_dur
             if diff > 0:
+                self.notifier.notify({
+                    'status': 'processing-video',
+                    'progress': i / (len(beats) - 1)
+                })
+
                 file = segs[i]
                 filename = modify_filename(file.name, prefix=i)
                 outfile = self.random_directory / filename
@@ -286,7 +307,7 @@ class MVGen(object):
                 new_end = dur - end - diff
 
                 if new_end < start:
-                    LOG.warning(f'File {file} is shorter than required, ignoring')
+                    logging.warning(f'File {file} is shorter than required, ignoring')
                     continue
 
                 ss = np.random.uniform(start, new_end)
@@ -318,11 +339,11 @@ class MVGen(object):
                 tf.write("{} : {}\n".format(d, file.name))
 
         for directory in delete_directories:
-            LOG.info(f'VIDEO: Deleting temporary directory {directory}')
+            logging.info(f'VIDEO: Deleting temporary directory {directory}')
             shutil.rmtree(directory)
 
     def make_join_file(self):
-        LOG.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
+        logging.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
 
         self.random_file = self.directory / RANDOM_FILENAME
 
@@ -337,18 +358,20 @@ class MVGen(object):
                 tf.write("file '{}'\n".format(f))
 
     def join(self, force=False, convert=False):
+        self.notifier.notify({'status': 'encoding-video'})
+
         if not CUDA:
-            LOG.info('VIDEO: Not using CUDA')
+            logging.info('VIDEO: Not using CUDA')
 
         self.video = self.directory / VIDEO_FILENAME
 
-        LOG.info(f'VIDEO: JOINING {self.random_file} into {self.video}')
+        logging.info(f'VIDEO: JOINING {self.random_file} into {self.video}')
 
         if force:
-            LOG.info('VIDEO: FORCING SIZE: {}'.format(force))
+            logging.info('VIDEO: FORCING SIZE: {}'.format(force))
 
         if convert:
-            LOG.info('VIDEO: Converting to final codec')
+            logging.info('VIDEO: Converting to final codec')
 
         cmd = cs.join(
             input_file=self.random_file,
@@ -363,6 +386,8 @@ class MVGen(object):
         self, ready_directory=None, offset=0, delete_work_dir=True,
         audio_mode='audio'
     ):
+        self.notifier.notify({'status': 'finalizing'})
+
         final_file = self.directory / FINAL_FILENAME
 
         if self.audio.exists():
@@ -370,7 +395,7 @@ class MVGen(object):
 
             if self.audio != new_audio:
                 acodec = 'aac'
-                LOG.info(f'FINALIZE: Converting audio {self.audio} to {acodec}')
+                logging.info(f'FINALIZE: Converting audio {self.audio} to {acodec}')
                 cmd = cs.convert_audio(
                     input_file=self.audio,
                     output_file=new_audio,
@@ -379,7 +404,7 @@ class MVGen(object):
                 runcmd(cmd)
                 self.audio = new_audio
 
-            LOG.info(f'FINALIZE: Joining audio and video using audio mode {audio_mode}')
+            logging.info(f'FINALIZE: Joining audio and video using audio mode {audio_mode}')
 
             if audio_mode == 'audio':
                 channel = 1
@@ -401,7 +426,7 @@ class MVGen(object):
             runcmd(cmd)
 
         else:
-            LOG.info('FINALIZE: Copying video only')
+            logging.info('FINALIZE: Copying video only')
             shutil.copy(
                 str(self.video),
                 str(final_file)
@@ -409,7 +434,7 @@ class MVGen(object):
 
 
         if ready_directory is not None:
-            LOG.info(f'FINALIZE: Moving results to ready directory {ready_directory}')
+            logging.info(f'FINALIZE: Moving results to ready directory {ready_directory}')
 
             video_suffix = os.path.splitext(FINAL_FILENAME)[-1]
             debug_suffix = os.path.splitext(DEBUG_FILENAME)[-1]
@@ -420,29 +445,29 @@ class MVGen(object):
                 ready_file = f'{ready_directory}/{self.uid}{video_suffix}'
                 ready_debug_file = f'{ready_directory}/{self.uid}{debug_suffix}'
 
-                LOG.info(f'FINALIZE: Uploading {final_file} to {ready_file}')
+                logging.info(f'FINALIZE: Uploading {final_file} to {ready_file}')
                 upload_gs_file(str(final_file), str(ready_file))
 
-                LOG.info(f'FINALIZE: Uploading {debug_file} to {ready_debug_file}')
+                logging.info(f'FINALIZE: Uploading {debug_file} to {ready_debug_file}')
                 upload_gs_file(str(debug_file), str(ready_debug_file))
             else:
                 ready_directory = convert_path(ready_directory)
                 ready_file = ready_directory / (self.directory.name + video_suffix)
                 ready_debug_file = ready_directory / (self.directory.name + debug_suffix)
 
-                LOG.info(f'FINALIZE: Moving {final_file} to {ready_file}')
+                logging.info(f'FINALIZE: Moving {final_file} to {ready_file}')
                 shutil.copy(str(final_file), str(ready_file))
 
-                LOG.info(f'FINALIZE: Moving {debug_file} to {ready_debug_file}')
+                logging.info(f'FINALIZE: Moving {debug_file} to {ready_debug_file}')
                 shutil.copy(str(debug_file), str(ready_debug_file))
 
             if delete_work_dir:
-                LOG.info(f'FINALIZE: Deleting work directory {self.directory}')
+                logging.info(f'FINALIZE: Deleting work directory {self.directory}')
                 shutil.rmtree(str(self.directory))
 
             final_file = ready_file
 
-        LOG.info(f'FINALIZE: Final file {final_file}')
+        logging.info(f'FINALIZE: Final file {final_file}')
 
         return final_file
 
