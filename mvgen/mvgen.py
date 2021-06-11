@@ -204,6 +204,8 @@ class MVGen(object):
 
             beats = list(np.arange(0, duration, diff))
 
+        self.bpm = bpm
+
         return beats
 
     def generate(
