@@ -78,47 +78,6 @@ def get_args(config, function):
     return args
 
 
-def parse_blob_uri(blob_path):
-    blob_path = blob_path[len('gs://'):]
-    slash_loc = blob_path.index('/')
-    bucket_name = blob_path[:slash_loc]
-    blob_name = blob_path[slash_loc + 1:] # /o/
-    return bucket_name, blob_name
-
-
-def download_gs_file(blob_uri, filename):
-    from google.cloud import storage
-
-    client = storage.Client(project=GCP_PROJECT_ID)
-    bucket, name = parse_blob_uri(blob_uri)
-    blob = storage.Blob(name=name, bucket=client.get_bucket(bucket))
-
-    blob.download_to_filename(filename)
-
-    return blob
-
-
-def download_gs_dir(blob_uri, directory):
-    from google.cloud import storage
-
-    client = storage.Client(project=GCP_PROJECT_ID)
-    bucket_name, prefix = parse_blob_uri(blob_uri)
-    blobs =  client.get_bucket(bucket_name).list_blobs(prefix=prefix)
-
-    for blob in blobs:
-        name = modify_filename(os.path.basename(blob.name))
-        blob.download_to_filename(os.path.join(directory, name))
-
-
-def upload_gs_file(filename, blob_uri):
-    from google.cloud import storage
-
-    client = storage.Client(project=GCP_PROJECT_ID)
-    bucket_name, prefix = parse_blob_uri(blob_uri)
-    blob = client.get_bucket(bucket_name).blob(prefix)
-    blob.upload_from_filename(filename)
-
-
 class NullNotifier:
     def notify(self, *args, **kwargs):
         pass
@@ -169,7 +128,7 @@ class MVGen(object):
         self.beats = self._process_audio(self.audio, bpm)
 
     def _copy_audio(self, audio, delete_original_audio):
-        if not os.path.exists(audio) and not str(audio).startswith('gs://'):
+        if not os.path.exists(audio):
             with open(str(self.debug_file), 'w', encoding='utf-8') as file:
                 file.write(f'Audio: {audio}\n')
             return audio
@@ -185,18 +144,11 @@ class MVGen(object):
         new_audio = self.directory / audio_name
 
         logging.info(f'AUDIO: Copying {audio} to {new_audio}')
-        if str(audio).startswith('gs://'):
-            self.notifier.notify({'status': 'downloading-audio'})
-            blob = download_gs_file(str(audio), new_audio)
-        else:
-            shutil.copy(str(audio), str(new_audio))
+        shutil.copy(str(audio), str(new_audio))
 
         if delete_original_audio:
             logging.info(f'AUDIO: Deleting original audio {audio}')
-            if str(audio).startswith('gs://'):
-                blob.delete()
-            else:
-                audio.unlink()
+            audio.unlink()
 
         audio = new_audio
 
@@ -261,8 +213,6 @@ class MVGen(object):
         self.random_directory = self.directory / RANDOM_DIRECTORY_NAME
         mkdir(self.random_directory)
 
-        delete_directories = []
-
         if src_paths is None:
             src_directory = convert_path(src_directory)
             src_paths = [src_directory / i for i in sources]
@@ -271,17 +221,8 @@ class MVGen(object):
         else:
             src_paths = deepcopy(src_paths)
             for i, src_path in enumerate(src_paths):
-                if src_path.startswith('gs:'):
-                    local_directory = mkdtemp()
-                    logging.info(f'VIDEO: Downloading {src_path} to {local_directory}')
-                    self.notifier.notify({'status': 'downloading-video'})
-                    download_gs_dir(src_path, local_directory)
-                    src_paths[i] = Path(local_directory)
-                    delete_directories.append(local_directory)
-                else:
-                    src_paths[i] = convert_path(src_path)
-
-                    logging.info(f'VIDEO: Using local source path {src_path}')
+                src_paths[i] = convert_path(src_path)
+                logging.info(f'VIDEO: Using source path {src_path}')
 
         beats = self.beats[::duration]
         limit = len(beats) + 1
@@ -337,10 +278,6 @@ class MVGen(object):
             for file, d in results:
                 d = str(datetime.timedelta(seconds=d))
                 tf.write("{} : {}\n".format(d, file.name))
-
-        for directory in delete_directories:
-            logging.info(f'VIDEO: Deleting temporary directory {directory}')
-            shutil.rmtree(directory)
 
     def make_join_file(self):
         logging.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
@@ -441,25 +378,15 @@ class MVGen(object):
 
             debug_file = self.directory / DEBUG_FILENAME
 
-            if ready_directory.startswith('gs:'):
-                ready_file = f'{ready_directory}/{self.uid}{video_suffix}'
-                ready_debug_file = f'{ready_directory}/{self.uid}{debug_suffix}'
+            ready_directory = convert_path(ready_directory)
+            ready_file = ready_directory / (self.directory.name + video_suffix)
+            ready_debug_file = ready_directory / (self.directory.name + debug_suffix)
 
-                logging.info(f'FINALIZE: Uploading {final_file} to {ready_file}')
-                upload_gs_file(str(final_file), str(ready_file))
+            logging.info(f'FINALIZE: Moving {final_file} to {ready_file}')
+            shutil.copy(str(final_file), str(ready_file))
 
-                logging.info(f'FINALIZE: Uploading {debug_file} to {ready_debug_file}')
-                upload_gs_file(str(debug_file), str(ready_debug_file))
-            else:
-                ready_directory = convert_path(ready_directory)
-                ready_file = ready_directory / (self.directory.name + video_suffix)
-                ready_debug_file = ready_directory / (self.directory.name + debug_suffix)
-
-                logging.info(f'FINALIZE: Moving {final_file} to {ready_file}')
-                shutil.copy(str(final_file), str(ready_file))
-
-                logging.info(f'FINALIZE: Moving {debug_file} to {ready_debug_file}')
-                shutil.copy(str(debug_file), str(ready_debug_file))
+            logging.info(f'FINALIZE: Moving {debug_file} to {ready_debug_file}')
+            shutil.copy(str(debug_file), str(ready_debug_file))
 
             if delete_work_dir:
                 logging.info(f'FINALIZE: Deleting work directory {self.directory}')
