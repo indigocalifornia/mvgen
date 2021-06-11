@@ -2,6 +2,7 @@
 import os
 import random
 import datetime
+from typing_extensions import final
 import uuid
 import shutil
 import logging
@@ -400,6 +401,8 @@ class MVGen(object):
 
         logging.info(f'FINALIZE: Final file {final_file}')
 
+        self.final_file = final_file
+
         return final_file
 
     @staticmethod
@@ -414,6 +417,6 @@ class MVGen(object):
 
         gen.join(**get_args(config, MVGen.join))
 
-        final_file = gen.finalize(**get_args(config, MVGen.finalize))
+        gen.finalize(**get_args(config, MVGen.finalize))
 
-        return final_file
+        return gen
