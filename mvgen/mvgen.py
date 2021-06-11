@@ -140,6 +140,8 @@ class MVGen(object):
                 [i for i in audio.iterdir() if os.path.isfile(i)]
             )
 
+        duration = get_duration(audio, raise_error=True)
+
         audio_name = modify_filename(os.path.basename(audio))
         new_audio = self.directory / audio_name
 
@@ -196,7 +198,7 @@ class MVGen(object):
             diff = 60. / bpm
 
             if audio.exists():
-                duration = get_duration(audio)
+                duration = get_duration(audio, raise_error=True)
             else:
                 duration = str2sec(str(audio))
 
@@ -243,7 +245,7 @@ class MVGen(object):
                 filename = modify_filename(file.name, prefix=i)
                 outfile = self.random_directory / filename
 
-                dur = get_duration(file)
+                dur = get_duration(file, raise_error=True)
 
                 new_end = dur - end - diff
 

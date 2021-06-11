@@ -8,17 +8,7 @@ import unidecode
 
 from mvgen import commands as cs
 
-
-def get_logger(name, level=logging.INFO):
-    LOG = logging.getLogger(name)
-    LOG.handlers = []
-    LOG.addHandler(logging.StreamHandler())
-    LOG.setLevel(level)
-
-    return LOG
-
-
-LOG = get_logger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 def natural_keys(text):
@@ -33,13 +23,15 @@ def mkdir(path):
         path.mkdir(parents=True, exist_ok=True)
 
 
-def get_duration(filename):
+def get_duration(filename, raise_error=False):
     cmd = cs.get_duration(filename)
     duration = os.popen(cmd)
     duration = duration.read().strip('\n')
     try:
         return float(duration)
     except Exception:
+        if raise_error:
+            raise ValueError(f'Invalid file {os.path.basename(filename)}')
         return 0.
 
 
@@ -54,7 +46,7 @@ def get_bitrate(filename):
 
 
 def runcmd(cmd):
-    LOG.debug(cmd)
+    logging.debug(cmd)
 
     log = os.devnull
     with open(log, 'a') as stdout:
@@ -65,8 +57,8 @@ def runcmd(cmd):
         out, err = res.communicate()
 
         if res.returncode != 0:
-            LOG.error(f'CMD ERROR: {cmd}')
-            LOG.error(out.decode('utf-8'))
+            logging.error(f'CMD ERROR: {cmd}')
+            logging.error(out.decode('utf-8'))
 
 
 def checkcmd(cmd):
@@ -78,7 +70,7 @@ def checkcmd(cmd):
         res.communicate()
 
     if res.returncode != 0:
-        LOG.error(cmd)
+        logging.error(cmd)
 
     return res.returncode
 

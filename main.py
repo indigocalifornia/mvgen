@@ -4,13 +4,13 @@ import os
 import datetime
 import inspect
 import json
+import logging
 
 from pathlib import Path
-from mvgen.utils import get_logger, wslpath
 from mvgen.variables import WSL
 from mvgen.mvgen import MVGen
 
-LOG = get_logger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 def validate_config(config):
@@ -92,7 +92,7 @@ def load_config(path=None):
         config_path = Path(os.path.dirname(__file__)) / 'config.yaml'
 
         if not config_path.exists():
-            LOG.info('No config was specified and default file does not exist')
+            logging.info('No config was specified and default file does not exist')
             config_path = None
     else:
         config_path = args.config
@@ -121,7 +121,7 @@ def run(args):
 
     config = validate_config(config)
 
-    LOG.info(f'CONFIG: {json.dumps(config)}')
+    logging.info(f'CONFIG: {json.dumps(config)}')
 
     started = datetime.datetime.now()
 
@@ -129,7 +129,7 @@ def run(args):
 
     finished = datetime.datetime.now()
 
-    LOG.info('COMPLETED: {}'.format(finished - started))
+    logging.info('COMPLETED: {}'.format(finished - started))
 
     return {
         'filename': final_file.name,

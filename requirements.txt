@@ -7,4 +7,3 @@ scipy
 tqdm
 aubio
 unidecode
-google-cloud-storage==1.38.0
