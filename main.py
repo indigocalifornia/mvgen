@@ -125,16 +125,11 @@ def run(args):
 
     started = datetime.datetime.now()
 
-    final_file = MVGen.run(config)
+    gen = MVGen.run(config)
 
     finished = datetime.datetime.now()
 
     logging.info('COMPLETED: {}'.format(finished - started))
-
-    return {
-        'filename': final_file.name,
-        'filepath': str(final_file)
-    }
 
 
 if __name__ == '__main__':
