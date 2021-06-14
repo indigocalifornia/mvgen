@@ -48,7 +48,8 @@ def handle_path(path):
 
 
 def handle_command(cmd):
-    return cmd if not WSL else cmd.replace('ffmpeg', 'ffmpeg.exe').replace('ffprobe', 'ffprobe.exe')
+    return cmd if not WSL else cmd.replace(
+        'ffmpeg', 'ffmpeg.exe', 1).replace('ffprobe', 'ffprobe.exe', 1)
 
 
 @handle_args_decorator(['src', 'dest'], handle_path, handle_command)
@@ -130,6 +131,11 @@ def get_duration(path):
 @handle_args_decorator(['path'], handle_path, handle_command)
 def get_bitrate(path):
     return f'ffprobe -v error -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 "{path}"'
+
+
+@handle_args_decorator(['path'], handle_path, handle_command)
+def get_streams(path, stream_type):
+    return f'ffprobe -i "{path}" -show_streams -select_streams {stream_type} -loglevel error'
 
 
 def get_wslpath(path):

@@ -186,7 +186,10 @@ class MVGen(object):
 
                     wav_audio = audio.parent / WAV_FILENAME
                     cmd = cs.convert_to_wav(audio, wav_audio)
-                    runcmd(cmd)
+                    exit_code = runcmd(cmd)
+
+                    if exit_code != 0:
+                        raise ValueError(f'Error converting {audio.name} to WAV')
                 else:
                     wav_audio = audio
 
@@ -281,7 +284,7 @@ class MVGen(object):
                 total_dur += dur
 
         if total_dur == 0:
-            raise ValueError('Input video files did not yield any output')
+            raise ValueError('No output was produced, check your audio/video input')
 
         with open(str(self.debug_file), 'a') as tf:
             for file, d in results:

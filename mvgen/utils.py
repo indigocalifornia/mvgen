@@ -45,7 +45,8 @@ def get_bitrate(filename):
         return 0.
 
 
-def runcmd(cmd):
+
+def runcmd(cmd, raise_error=False):
     logging.debug(cmd)
 
     log = os.devnull
@@ -59,6 +60,11 @@ def runcmd(cmd):
         if res.returncode != 0:
             logging.error(f'CMD ERROR: {cmd}')
             logging.error(out.decode('utf-8'))
+
+        if raise_error:
+            raise ValueError(out.decode('utf-8'))
+
+    return res.returncode
 
 
 def checkcmd(cmd):
