@@ -1,4 +1,5 @@
 """Main functionality."""
+from multiprocessing import Value
 import os
 import random
 import datetime
@@ -278,6 +279,9 @@ class MVGen(object):
 
                 results.append((outfile, total_dur))
                 total_dur += dur
+
+        if total_dur == 0:
+            raise ValueError('Input video files did not yield any output')
 
         with open(str(self.debug_file), 'a') as tf:
             for file, d in results:

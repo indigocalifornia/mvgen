@@ -31,7 +31,7 @@ def get_duration(filename, raise_error=False):
         return float(duration)
     except Exception:
         if raise_error:
-            raise ValueError(f'Invalid file {os.path.basename(filename)}')
+            raise ValueError(f'Invalid audio/video file {os.path.basename(filename)}')
         return 0.
 
 
