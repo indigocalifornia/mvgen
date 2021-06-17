@@ -284,7 +284,7 @@ class MVGen(object):
                 total_dur += dur
 
         if total_dur == 0:
-            raise ValueError('No output was produced, check your audio/video input')
+            raise ValueError('Video segments have no length')
 
         with open(str(self.debug_file), 'a') as tf:
             for file, d in results:
@@ -318,9 +318,10 @@ class MVGen(object):
 
         if force:
             logging.info('VIDEO: FORCING SIZE: {}'.format(force))
-
-        if convert:
-            logging.info('VIDEO: Converting to final codec')
+        elif convert:
+            logging.info('VIDEO: Converting video to final codec')
+        else:
+            logging.info('VIDEO: Video codec copy')
 
         cmd = cs.join(
             input_file=self.random_file,
@@ -329,7 +330,9 @@ class MVGen(object):
             convert=convert
         )
 
-        runcmd(cmd)
+        exit_code = runcmd(cmd, raise_error=True)
+        if exit_code != 0:
+            raise ValueError('Output video contains no stream')
 
     def finalize(
         self, ready_directory=None, offset=0, delete_work_dir=True,

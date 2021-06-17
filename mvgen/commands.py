@@ -104,7 +104,12 @@ def join(input_file, output, force=False, convert=False):
         hwaccel = ''
         output_codec = '-c:v copy'
 
-    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} {force_params} "{output}"'
+    if output_codec != '-c:v copy':
+        crop = '-vf "crop=trunc(iw/2)*2:trunc(ih/2)*2"'
+    else:
+        crop = ''
+
+    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} {force_params} {crop} "{output}"'
 
 
 @handle_args_decorator(['input_file', 'output_file'], handle_path, handle_command)

@@ -61,8 +61,8 @@ def runcmd(cmd, raise_error=False):
             logging.error(f'CMD ERROR: {cmd}')
             logging.error(out.decode('utf-8'))
 
-        if raise_error:
-            raise ValueError(out.decode('utf-8'))
+            if raise_error:
+                raise ValueError(out.decode('utf-8'))
 
     return res.returncode
 
