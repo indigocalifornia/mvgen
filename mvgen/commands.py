@@ -67,7 +67,7 @@ def process_segment(start, length, input_file, output):
     if CUDA:
         output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
     else:
-        output_codec = '-c:v libx264 -crf 0 -preset ultrafast'
+        output_codec = '-c:v libx264 -crf 27 -preset ultrafast'
 
     # hwaccel = input_codec = output_codec = ''
 
