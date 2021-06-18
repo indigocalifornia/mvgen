@@ -202,7 +202,7 @@ class MVGen(object):
 
             diff = 60. / bpm
 
-            if audio.exists():
+            if os.path.exists(audio):
                 duration = get_duration(audio, raise_error=True)
             else:
                 duration = str2sec(str(audio))
@@ -215,7 +215,7 @@ class MVGen(object):
 
     def generate(
         self, duration, sources=None, src_directory=None, src_paths=None,
-        start=0, end=0
+        start=0, end=0, cuda=None, segment_codec=None
     ):
         self.notifier.notify({'status': 'processing-video'})
 
@@ -237,6 +237,9 @@ class MVGen(object):
         limit = len(beats) + 1
 
         segs = get_random_files(src_paths, limit)
+
+        if segment_codec is not None:
+            logging.info(f'VIDEO: Using segment codec {segment_codec}')
 
         total_dur = 0
         results = []
@@ -266,7 +269,9 @@ class MVGen(object):
                     start=ss,
                     length=diff,
                     input_file=file,
-                    output=outfile
+                    output_file=outfile,
+                    cuda=cuda,
+                    segment_codec=segment_codec
                 )
 
                 runcmd(cmd)
@@ -305,7 +310,7 @@ class MVGen(object):
                     f = cs.windowspath(f)
                 tf.write("file '{}'\n".format(f))
 
-    def join(self, force=False, convert=False):
+    def join(self, force=False, convert=False, output_codec=None):
         self.notifier.notify({'status': 'encoding-video'})
 
         if not CUDA:
@@ -318,7 +323,7 @@ class MVGen(object):
         if force:
             logging.info('VIDEO: FORCING SIZE: {}'.format(force))
         elif convert:
-            logging.info('VIDEO: Converting video to final codec')
+            logging.info(f'VIDEO: Converting video to final codec {output_codec}')
         else:
             logging.info('VIDEO: Video codec copy')
 
@@ -326,7 +331,8 @@ class MVGen(object):
             input_file=self.random_file,
             output=self.video,
             force=force,
-            convert=convert
+            convert=convert,
+            output_codec=output_codec
         )
 
         exit_code = runcmd(cmd, raise_error=True)
@@ -341,7 +347,7 @@ class MVGen(object):
 
         final_file = self.directory / FINAL_FILENAME
 
-        if self.audio.exists():
+        if os.path.exists(self.audio):
             new_audio = self.directory / CONVERTED_AUDIO_FILENAME
 
             if self.audio != new_audio:
@@ -416,6 +422,8 @@ class MVGen(object):
 
     @staticmethod
     def run(config):
+        started = datetime.datetime.now()
+
         gen = MVGen(**get_args(config, MVGen))
 
         gen.load_audio(**get_args(config, MVGen.load_audio))
@@ -427,5 +435,9 @@ class MVGen(object):
         gen.join(**get_args(config, MVGen.join))
 
         gen.finalize(**get_args(config, MVGen.finalize))
+
+        finished = datetime.datetime.now()
+
+        logging.info('COMPLETED: {}'.format(finished - started))
 
         return gen

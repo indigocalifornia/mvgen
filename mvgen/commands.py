@@ -59,25 +59,27 @@ def convert_to_wav(src, dest):
     return cmd
 
 
-@handle_args_decorator(['input_file', 'output'], handle_path, handle_command)
-def process_segment(start, length, input_file, output):
-    hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda' if CUDA else ''
-    input_codec = '-c:v h264_cuvid' if CUDA else ''
+@handle_args_decorator(['input_file', 'output_file'], handle_path, handle_command)
+def process_segment(start, length, input_file, output_file, cuda, segment_codec):
+    if cuda is None:
+        cuda = CUDA
 
-    if CUDA:
-        output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
-    else:
-        output_codec = '-c:v libx264 -crf 27 -preset ultrafast'
+    hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda' if cuda else ''
+    input_codec = '-c:v h264_cuvid' if cuda else ''
 
-    # hwaccel = input_codec = output_codec = ''
+    if segment_codec is None:
+        if cuda:
+            segment_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
+        else:
+            segment_codec = '-c:v libx264 -crf 27 -preset ultrafast'
 
-    cmd = f'ffmpeg -y -hide_banner -loglevel error {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {output_codec} -f mpeg "{output}"'
+    cmd = f'ffmpeg -y -hide_banner -loglevel error {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {segment_codec} -f mpeg "{output_file}"'
 
     return cmd
 
 
 @handle_args_decorator(['input_file', 'output'], handle_path, handle_command)
-def join(input_file, output, force=False, convert=False):
+def join(input_file, output, force=False, convert=False, output_codec=None):
     force_params = ''
 
     if force:
@@ -97,12 +99,15 @@ def join(input_file, output, force=False, convert=False):
             hwaccel = ''
             output_codec = '-c:v libx264 -crf 27 -preset veryfast'
     elif convert:
-        if CUDA:
-            hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda'
-            output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
+        if output_codec is None:
+            if CUDA:
+                hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda'
+                output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
+            else:
+                hwaccel = ''
+                output_codec = '-c:v libx264 -crf 27 -preset veryfast'
         else:
             hwaccel = ''
-            output_codec = '-c:v libx264 -crf 27 -preset veryfast'
     else:
         hwaccel = ''
         output_codec = '-c:v copy'

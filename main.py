@@ -80,6 +80,15 @@ def parse_args():
     parser.add_argument(
         '--convert', type=int,
     )
+    parser.add_argument(
+        '--segment_codec', type=str,
+    )
+    parser.add_argument(
+        '--output_codec', type=str,
+    )
+    parser.add_argument(
+        '--cuda', type=int,
+    )
 
     args, _ = parser.parse_known_args()
 
@@ -123,13 +132,9 @@ def run(args):
 
     logging.info(f'CONFIG: {json.dumps(config)}')
 
-    started = datetime.datetime.now()
-
     gen = MVGen.run(config)
 
-    finished = datetime.datetime.now()
-
-    logging.info('COMPLETED: {}'.format(finished - started))
+    return gen
 
 
 if __name__ == '__main__':
