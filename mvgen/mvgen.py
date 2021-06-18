@@ -266,7 +266,6 @@ class MVGen(object):
                     start=ss,
                     length=diff,
                     input_file=file,
-                    bitrate=None,
                     output=outfile
                 )
 

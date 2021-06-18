@@ -41,7 +41,7 @@ def parse_args():
     )
     parser.add_argument('--bpm', help='Audio BPM variable')
     parser.add_argument(
-        '--delete_work_dir',
+        '--delete_work_dir', type=int,
         help='Delete working directory.'
     )
     parser.add_argument(
@@ -78,7 +78,7 @@ def parse_args():
         help='Audio mode. Valid values are "audio", "original" and "mix".'
     )
     parser.add_argument(
-        '--convert', type=str,
+        '--convert', type=int,
     )
 
     args, _ = parser.parse_known_args()
