@@ -93,19 +93,19 @@ def join(input_file, output, force=False, convert=False, output_codec=None):
         ).format(width=width, height=height)
 
         if CUDA:
-            hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda'
+            hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda -c:v h264_cuvid'
             output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
         else:
             hwaccel = ''
             output_codec = '-c:v libx264 -crf 27 -preset veryfast'
     elif convert:
         if output_codec is None:
-            if CUDA:
-                hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda'
-                output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
-            else:
-                hwaccel = ''
-                output_codec = '-c:v libx264 -crf 27 -preset veryfast'
+            # if CUDA:
+            #     hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda -c:v h264_cuvid'
+            #     output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
+            # else:
+            hwaccel = ''
+            output_codec = '-c:v libx264 -crf 27 -preset veryfast'
         else:
             hwaccel = ''
     else:
@@ -128,12 +128,13 @@ def convert_audio(input_file, output_file, acodec):
 
 @handle_args_decorator(['video', 'audio', 'output'], handle_path, handle_command)
 def join_audio_video(offset, video, audio, channel, output):
+    acodec = '-acodec aac'
     if channel == 'mix':
         mapping = '-filter_complex amix'
     else:
         mapping = f'-map 0:v:0 -map {channel}:a:0'
 
-    return f'ffmpeg -y -hide_banner -loglevel error -itsoffset {offset} -i "{video}" -i "{audio}" -vcodec copy -acodec copy -shortest {mapping} "{output}"'
+    return f'ffmpeg -y -hide_banner -loglevel error -itsoffset {offset} -i "{video}" -i "{audio}" -vcodec copy {acodec} -shortest {mapping} "{output}"'
 
 
 @handle_args_decorator(['path'], handle_path, handle_command)

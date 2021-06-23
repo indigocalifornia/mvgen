@@ -60,7 +60,7 @@ def convert_path(path, make_directory=True):
 
 
 def get_random_files(paths, limit):
-    segs = np.concatenate([list(i.iterdir()) for i in paths])
+    segs = np.concatenate([list(i.rglob('*')) for i in paths])
     segs = [i for i in segs if os.stat(str(i)).st_size > 0]
 
     random.shuffle(segs)
@@ -255,15 +255,18 @@ class MVGen(object):
                 filename = modify_filename(file.name, prefix=i)
                 outfile = self.random_directory / filename
 
-                dur = get_duration(file, raise_error=True)
+                dur = get_duration(file)
+
+                new_start = start * dur if start < 1 else start
+                new_end = end * dur if end < 1 else end
 
                 new_end = dur - end - diff
 
-                if new_end < start:
-                    logging.warning(f'File {file} is shorter than required, ignoring')
+                if new_end < new_start:
+                    logging.warning(f'File {file} duration {dur} with new end {new_end} is shorter than required {new_start}, ignoring')
                     continue
 
-                ss = np.random.uniform(start, new_end)
+                ss = np.random.uniform(new_start, new_end)
 
                 cmd = cs.process_segment(
                     start=ss,
@@ -284,16 +287,16 @@ class MVGen(object):
 
                     continue
 
-                results.append((outfile, total_dur))
+                results.append((outfile, total_dur, ss, new_start, new_end))
                 total_dur += dur
 
         if total_dur == 0:
             raise ValueError('Video segments have no length')
 
         with open(str(self.debug_file), 'a') as tf:
-            for file, d in results:
+            for file, d, ss, new_start, new_end in results:
                 d = str(datetime.timedelta(seconds=d))
-                tf.write("{} : {}\n".format(d, file.name))
+                tf.write("{} : {} : {} : {} : {}\n".format(d, file.name, ss, new_start, new_end))
 
     def make_join_file(self):
         logging.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
@@ -348,18 +351,18 @@ class MVGen(object):
         final_file = self.directory / FINAL_FILENAME
 
         if os.path.exists(self.audio):
-            new_audio = self.directory / CONVERTED_AUDIO_FILENAME
+            # new_audio = self.directory / CONVERTED_AUDIO_FILENAME
 
-            if self.audio != new_audio:
-                acodec = 'aac'
-                logging.info(f'FINALIZE: Converting audio {self.audio} to {acodec}')
-                cmd = cs.convert_audio(
-                    input_file=self.audio,
-                    output_file=new_audio,
-                    acodec=acodec
-                )
-                runcmd(cmd)
-                self.audio = new_audio
+            # if self.audio != new_audio:
+            #     acodec = 'aac'
+            #     logging.info(f'FINALIZE: Converting audio {self.audio} to {acodec}')
+            #     cmd = cs.convert_audio(
+            #         input_file=self.audio,
+            #         output_file=new_audio,
+            #         acodec=acodec
+            #     )
+            #     runcmd(cmd)
+            #     self.audio = new_audio
 
             logging.info(f'FINALIZE: Joining audio and video using audio mode {audio_mode}')
 
