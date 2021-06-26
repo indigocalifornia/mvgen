@@ -81,26 +81,24 @@ def process_segment(start, length, input_file, output_file, cuda, segment_codec)
 @handle_args_decorator(['input_file', 'output'], handle_path, handle_command)
 def join(
     input_file, output, force=False, convert=False, output_codec=None,
-    watermark=None
+    watermark=None, watermark_fontsize=40
 ):
     force_params = ''
 
+    vf = []
+
     if force:
         width, height = force
-        force_params = (
-            '-movflags faststart -vf "scale='
-            '(iw*sar)*min({width}/(iw*sar)\,'
-            '{height}/ih):ih*min({width}/(iw*sar)\,{height}/ih), pad='
-            '{width}:{height}:({width}-iw*min({width}/iw\,'
-            '{height}/ih))/2:({height}-ih*min({width}/iw\,{height}/ih))/2"'
-        ).format(width=width, height=height)
+        vf.append(
+            f'scale=(iw*sar)*min({width}/(iw*sar)\,{height}/ih):ih*min({width}/(iw*sar)\,{height}/ih), pad={width}:{height}:({width}-iw*min({width}/iw\,{height}/ih))/2:({height}-ih*min({width}/iw\,{height}/ih))/2'
+        )
 
-        if CUDA:
-            hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda -c:v h264_cuvid'
-            output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
-        else:
-            hwaccel = ''
-            output_codec = '-c:v libx264 -crf 27 -preset veryfast'
+        # if CUDA:
+        #     hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda -c:v h264_cuvid'
+        #     output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
+        # else:
+        hwaccel = ''
+        output_codec = '-c:v libx264 -crf 27 -preset veryfast'
     elif convert:
         if output_codec is None:
             # if CUDA:
@@ -115,8 +113,6 @@ def join(
         hwaccel = ''
         output_codec = '-c:v copy'
 
-    vf = []
-
     if output_codec != '-c:v copy':
         vf.append('crop=trunc(iw/2)*2:trunc(ih/2)*2')
 
@@ -124,8 +120,8 @@ def join(
         watermark = watermark.split('<EOL>')
         start = 10
         for text in watermark:
-            vf.append(f"drawtext=text='{text}':x=10:y={start}:bordercolor=black:borderw=3:fontcolor=white:fontsize=20:fontfile=Arial")
-            start += 25
+            vf.append(f"drawtext=text='{text}':x=10:y={start}:bordercolor=black:borderw=3:fontcolor=white:fontsize={watermark_fontsize}:fontfile=Arial")
+            start += watermark_fontsize + 5
 
     if len(vf):
         vf = ','.join(vf)
@@ -133,7 +129,7 @@ def join(
     else:
         vf = ''
 
-    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} {force_params} {vf} "{output}"'
+    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} -movflags faststart {force_params} {vf} "{output}"'
 
 
 @handle_args_decorator(['input_file', 'output_file'], handle_path, handle_command)
