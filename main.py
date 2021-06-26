@@ -89,6 +89,9 @@ def parse_args():
     parser.add_argument(
         '--cuda', type=int,
     )
+    parser.add_argument(
+        '--watermark'
+    )
 
     args, _ = parser.parse_known_args()
 

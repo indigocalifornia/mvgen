@@ -313,7 +313,9 @@ class MVGen(object):
                     f = cs.windowspath(f)
                 tf.write("file '{}'\n".format(f))
 
-    def join(self, force=False, convert=False, output_codec=None):
+    def join(
+        self, force=False, convert=False, output_codec=None, watermark=None
+    ):
         self.notifier.notify({'status': 'encoding-video'})
 
         if not CUDA:
@@ -335,7 +337,8 @@ class MVGen(object):
             output=self.video,
             force=force,
             convert=convert,
-            output_codec=output_codec
+            output_codec=output_codec,
+            watermark=watermark
         )
 
         exit_code = runcmd(cmd, raise_error=True)

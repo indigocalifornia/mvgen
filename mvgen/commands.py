@@ -79,7 +79,10 @@ def process_segment(start, length, input_file, output_file, cuda, segment_codec)
 
 
 @handle_args_decorator(['input_file', 'output'], handle_path, handle_command)
-def join(input_file, output, force=False, convert=False, output_codec=None):
+def join(
+    input_file, output, force=False, convert=False, output_codec=None,
+    watermark=None
+):
     force_params = ''
 
     if force:
@@ -112,12 +115,25 @@ def join(input_file, output, force=False, convert=False, output_codec=None):
         hwaccel = ''
         output_codec = '-c:v copy'
 
-    if output_codec != '-c:v copy':
-        crop = '-vf "crop=trunc(iw/2)*2:trunc(ih/2)*2"'
-    else:
-        crop = ''
+    vf = []
 
-    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} {force_params} {crop} "{output}"'
+    if output_codec != '-c:v copy':
+        vf.append('crop=trunc(iw/2)*2:trunc(ih/2)*2')
+
+    if watermark is not None:
+        watermark = watermark.split('<EOL>')
+        start = 10
+        for text in watermark:
+            vf.append(f"drawtext=text='{text}':x=10:y={start}:bordercolor=black:borderw=3:fontcolor=white:fontsize=20:fontfile=Arial")
+            start += 25
+
+    if len(vf):
+        vf = ','.join(vf)
+        vf = f'-vf "[in]{vf}[out]"'
+    else:
+        vf = ''
+
+    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} {force_params} {vf} "{output}"'
 
 
 @handle_args_decorator(['input_file', 'output_file'], handle_path, handle_command)
