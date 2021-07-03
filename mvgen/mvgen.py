@@ -225,7 +225,7 @@ class MVGen(object):
     def generate(
         self, duration, sources=None, src_directory=None, src_paths=None,
         start=0, end=0, cuda=None, segment_codec=None,
-        width=None, height=None, watermark=None
+        width=None, height=None, watermark=None, watermark_fontsize=40
     ):
         self.notifier.notify({'status': 'processing-video'})
 
@@ -298,7 +298,8 @@ class MVGen(object):
                     segment_codec=segment_codec,
                     width=width,
                     height=height,
-                    watermark=watermark
+                    watermark=watermark,
+                    watermark_fontsize=watermark_fontsize
                 )
 
                 runcmd(cmd, timeout=15)
