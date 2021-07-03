@@ -60,7 +60,10 @@ def convert_to_wav(src, dest):
 
 
 @handle_args_decorator(['input_file', 'output_file'], handle_path, handle_command)
-def process_segment(start, length, input_file, output_file, cuda, segment_codec):
+def process_segment(
+    start, length, input_file, output_file, cuda, segment_codec,
+    width=None, height=None, watermark=None, watermark_fontsize=40
+):
     if cuda is None:
         cuda = CUDA
 
@@ -73,63 +76,20 @@ def process_segment(start, length, input_file, output_file, cuda, segment_codec)
         else:
             segment_codec = '-c:v libx264 -crf 27 -preset ultrafast'
 
-    cmd = f'ffmpeg -y -hide_banner -loglevel error {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {segment_codec} -f mpeg "{output_file}"'
+    vf = get_vf(width, height, watermark, watermark_fontsize)
+
+    cmd = f'ffmpeg -y -hide_banner -loglevel error {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {segment_codec} -f mpeg {vf} "{output_file}"'
 
     return cmd
 
 
 @handle_args_decorator(['input_file', 'output'], handle_path, handle_command)
-def join(
-    input_file, output, force=False, convert=False, output_codec=None,
-    watermark=None, watermark_fontsize=40
-):
-    force_params = ''
+def join(input_file, output):
+    hwaccel = ''
+    output_codec = '-c:v copy'
+    vf = ''
 
-    vf = []
-
-    if force:
-        width, height = force
-        vf.append(
-            f'scale=(iw*sar)*min({width}/(iw*sar)\,{height}/ih):ih*min({width}/(iw*sar)\,{height}/ih), pad={width}:{height}:({width}-iw*min({width}/iw\,{height}/ih))/2:({height}-ih*min({width}/iw\,{height}/ih))/2'
-        )
-
-        # if CUDA:
-        #     hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda -c:v h264_cuvid'
-        #     output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
-        # else:
-        hwaccel = ''
-        output_codec = '-c:v libx264 -crf 27 -preset veryfast'
-    elif convert:
-        if output_codec is None:
-            # if CUDA:
-            #     hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda -c:v h264_cuvid'
-            #     output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
-            # else:
-            hwaccel = ''
-            output_codec = '-c:v libx264 -crf 27 -preset veryfast'
-        else:
-            hwaccel = ''
-    else:
-        hwaccel = ''
-        output_codec = '-c:v copy'
-
-    if output_codec != '-c:v copy':
-        vf.append('crop=trunc(iw/2)*2:trunc(ih/2)*2')
-
-    if watermark is not None:
-        watermark = watermark.split('<EOL>')
-        start = 10
-        for text in watermark:
-            vf.append(f"drawtext=text='{text}':x=10:y={start}:bordercolor=black:borderw=3:fontcolor=white:fontsize={watermark_fontsize}:fontfile=Arial")
-            start += watermark_fontsize + 5
-
-    if len(vf):
-        vf = ','.join(vf)
-        vf = f'-vf "[in]{vf}[out]"'
-    else:
-        vf = ''
-
-    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} -movflags faststart {force_params} {vf} "{output}"'
+    return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} -movflags faststart {vf} "{output}"'
 
 
 @handle_args_decorator(['input_file', 'output_file'], handle_path, handle_command)
@@ -170,3 +130,29 @@ def get_wslpath(path):
 
 def get_windows_path(path):
     return f'wslpath -m "{path}"'
+
+
+def get_vf(width, height, watermark, watermark_fontsize):
+    vf = []
+
+    if width is not None and height is not None:
+        vf.append(
+            f'scale=(iw*sar)*min({width}/(iw*sar)\,{height}/ih):ih*min({width}/(iw*sar)\,{height}/ih), pad={width}:{height}:({width}-iw*min({width}/iw\,{height}/ih))/2:({height}-ih*min({width}/iw\,{height}/ih))/2'
+        )
+
+    vf.append('crop=trunc(iw/2)*2:trunc(ih/2)*2')
+
+    if watermark is not None:
+        watermark = watermark.split('<EOL>')
+        start = 10
+        for text in watermark:
+            vf.append(f"drawtext=text='{text}':x=10:y={start}:bordercolor=black:borderw=3:fontcolor=white:fontsize={watermark_fontsize}:fontfile=Arial")
+            start += watermark_fontsize + 5
+
+    if len(vf):
+        vf = ','.join(vf)
+        vf = f'-vf "[in]{vf}[out]"'
+    else:
+        vf = ''
+
+    return vf

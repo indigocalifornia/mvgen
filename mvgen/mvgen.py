@@ -10,6 +10,7 @@ import logging
 import numpy as np
 import attr
 import inspect
+import json
 
 from pathlib import Path
 from tqdm import tqdm
@@ -143,6 +144,7 @@ class MVGen(object):
             )
 
         duration = get_duration(audio, raise_error=True)
+        logging.info(f'Audio duration: {duration}')
 
         audio_name = modify_filename(os.path.basename(audio))
         new_audio = self.directory / audio_name
@@ -163,6 +165,7 @@ class MVGen(object):
 
     def _process_audio(self, audio, bpm):
         logging.info(f'AUDIO: Processing {audio}')
+
         if Path(str(bpm)).exists():
             logging.info('AUDIO: Beats file: {}'.format(bpm))
 
@@ -180,6 +183,9 @@ class MVGen(object):
         else:
             if bpm is None or bpm == 'auto':
                 logging.info('AUDIO: Detecting BPM')
+
+                if not os.path.exists(audio):
+                    raise ValueError('Audio is not a file and no bpm is specified')
 
                 if audio.suffix != '.wav':
                     logging.info('AUDIO: Converting to WAV')
@@ -211,11 +217,15 @@ class MVGen(object):
 
         self.bpm = bpm
 
+        with open(str(self.debug_file), 'a') as file:
+            json.dump({'beats': beats}, file)
+
         return beats
 
     def generate(
         self, duration, sources=None, src_directory=None, src_paths=None,
-        start=0, end=0, cuda=None, segment_codec=None
+        start=0, end=0, cuda=None, segment_codec=None,
+        width=None, height=None, watermark=None
     ):
         self.notifier.notify({'status': 'processing-video'})
 
@@ -233,7 +243,18 @@ class MVGen(object):
                 src_paths[i] = convert_path(src_path)
                 logging.info(f'VIDEO: Using source path {src_path}')
 
-        beats = self.beats[::duration]
+        if duration >= 1:
+            duration = int(duration)
+            beats = self.beats[::duration]
+        else:
+            beats = np.array(self.beats)
+            fracs = np.arange(0, 1, duration)[1:]
+            new_beats = [beats]
+            for frac in fracs:
+                new = (beats[1:] + beats[:-1]) * frac
+                new_beats.append(new)
+            beats = list(np.sort(np.concatenate(new_beats)))
+
         limit = len(beats) + 1
 
         segs = get_random_files(src_paths, limit)
@@ -274,29 +295,41 @@ class MVGen(object):
                     input_file=file,
                     output_file=outfile,
                     cuda=cuda,
-                    segment_codec=segment_codec
+                    segment_codec=segment_codec,
+                    width=width,
+                    height=height,
+                    watermark=watermark
                 )
 
-                runcmd(cmd)
+                runcmd(cmd, timeout=15)
 
                 dur = get_duration(outfile)
 
                 if dur <= 0:
                     if outfile.exists():
-                        os.remove(str(outfile))
+                        try:
+                            os.remove(str(outfile))
+                        except Exception as e:
+                            logging.error(e)
 
                     continue
 
-                results.append((outfile, total_dur, ss, new_start, new_end))
+                results.append((outfile, total_dur, ss, diff))
                 total_dur += dur
 
         if total_dur == 0:
             raise ValueError('Video segments have no length')
 
         with open(str(self.debug_file), 'a') as tf:
-            for file, d, ss, new_start, new_end in results:
+            for file, d, ss, diff in results:
                 d = str(datetime.timedelta(seconds=d))
-                tf.write("{} : {} : {} : {} : {}\n".format(d, file.name, ss, new_start, new_end))
+                r = {
+                    'time': d,
+                    'filename': file.name,
+                    'start': ss,
+                    'duration': diff
+                }
+                json.dump(r, tf)
 
     def make_join_file(self):
         logging.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
@@ -313,9 +346,7 @@ class MVGen(object):
                     f = cs.windowspath(f)
                 tf.write("file '{}'\n".format(f))
 
-    def join(
-        self, force=False, convert=False, output_codec=None, watermark=None
-    ):
+    def join(self):
         self.notifier.notify({'status': 'encoding-video'})
 
         if not CUDA:
@@ -325,20 +356,9 @@ class MVGen(object):
 
         logging.info(f'VIDEO: JOINING {self.random_file} into {self.video}')
 
-        if force:
-            logging.info('VIDEO: FORCING SIZE: {}'.format(force))
-        elif convert:
-            logging.info(f'VIDEO: Converting video to final codec {output_codec}')
-        else:
-            logging.info('VIDEO: Video codec copy')
-
         cmd = cs.join(
             input_file=self.random_file,
             output=self.video,
-            force=force,
-            convert=convert,
-            output_codec=output_codec,
-            watermark=watermark
         )
 
         exit_code = runcmd(cmd, raise_error=True)
@@ -354,19 +374,6 @@ class MVGen(object):
         final_file = self.directory / FINAL_FILENAME
 
         if os.path.exists(self.audio):
-            # new_audio = self.directory / CONVERTED_AUDIO_FILENAME
-
-            # if self.audio != new_audio:
-            #     acodec = 'aac'
-            #     logging.info(f'FINALIZE: Converting audio {self.audio} to {acodec}')
-            #     cmd = cs.convert_audio(
-            #         input_file=self.audio,
-            #         output_file=new_audio,
-            #         acodec=acodec
-            #     )
-            #     runcmd(cmd)
-            #     self.audio = new_audio
-
             logging.info(f'FINALIZE: Joining audio and video using audio mode {audio_mode}')
 
             if audio_mode == 'audio':

@@ -32,7 +32,7 @@ def parse_args():
         help='Names of the source folders.'
     )
     parser.add_argument(
-        '--duration', '-d', type=int,
+        '--duration', '-d', type=float,
         help='Beats per scene modifier.'
     )
     parser.add_argument(
@@ -57,8 +57,13 @@ def parse_args():
         help='Audio offset in the final file.'
     )
     parser.add_argument(
-        '--force',
-        nargs='*',
+        '--width',
+        type=int,
+        help='Force width and height for final video.'
+    )
+    parser.add_argument(
+        '--height',
+        type=int,
         help='Force width and height for final video.'
     )
     parser.add_argument(
@@ -93,7 +98,7 @@ def parse_args():
         '--watermark'
     )
 
-    args, _ = parser.parse_known_args()
+    args, unknown_args = parser.parse_known_args()
 
     args = {k: v for k, v in vars(args).items() if v is not None}
 
