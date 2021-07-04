@@ -1,5 +1,8 @@
 # mvgen
 
+# README IS OBSOLETE!
+# Consult arguments in main.py instead
+
 ## Description
 `mvgen` generates video mixes for you in an automated fashion. Given some video sources
 and an audio file, it will randomly select parts of those videos and collect them together
