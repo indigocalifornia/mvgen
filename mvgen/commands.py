@@ -62,7 +62,8 @@ def convert_to_wav(src, dest):
 @handle_args_decorator(['input_file', 'output_file'], handle_path, handle_command)
 def process_segment(
     start, length, input_file, output_file, cuda, segment_codec,
-    width=None, height=None, watermark=None, watermark_fontsize=40
+    width=None, height=None, watermark=None, watermark_fontsize=40,
+    even_dimensions=False
 ):
     if cuda is None:
         cuda = CUDA
@@ -76,7 +77,7 @@ def process_segment(
         else:
             segment_codec = '-c:v libx264 -crf 27 -preset ultrafast'
 
-    vf = get_vf(width, height, watermark, watermark_fontsize)
+    vf = get_vf(width, height, watermark, watermark_fontsize, even_dimensions)
 
     cmd = f'ffmpeg -y -hide_banner -loglevel error {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {segment_codec} -f mpeg {vf} "{output_file}"'
 
@@ -84,9 +85,26 @@ def process_segment(
 
 
 @handle_args_decorator(['input_file', 'output'], handle_path, handle_command)
-def join(input_file, output):
-    hwaccel = ''
-    output_codec = '-c:v copy'
+def join(
+    input_file, output,
+    width=None, height=None,
+    convert=False, output_codec=None,
+    watermark=None, watermark_fontsize=40
+):
+    if convert:
+        if output_codec is None:
+            # if CUDA:
+            #     hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda -c:v h264_cuvid'
+            #     output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
+            # else:
+            hwaccel = ''
+            output_codec = '-c:v libx264 -crf 27 -preset veryfast'
+        else:
+            hwaccel = ''
+    else:
+        hwaccel = ''
+        output_codec = '-c:v copy'
+
     vf = ''
 
     return f'ffmpeg -y -hide_banner -loglevel error {hwaccel} -auto_convert 1 -f concat -safe 0 -i "{input_file}" {output_codec} -movflags faststart {vf} "{output}"'
@@ -132,7 +150,7 @@ def get_windows_path(path):
     return f'wslpath -m "{path}"'
 
 
-def get_vf(width, height, watermark, watermark_fontsize):
+def get_vf(width, height, watermark, watermark_fontsize, even_dimensions):
     vf = []
 
     if width is not None and height is not None:
@@ -140,7 +158,8 @@ def get_vf(width, height, watermark, watermark_fontsize):
             f'scale=(iw*sar)*min({width}/(iw*sar)\,{height}/ih):ih*min({width}/(iw*sar)\,{height}/ih), pad={width}:{height}:({width}-iw*min({width}/iw\,{height}/ih))/2:({height}-ih*min({width}/iw\,{height}/ih))/2'
         )
 
-    vf.append('crop=trunc(iw/2)*2:trunc(ih/2)*2')
+    if even_dimensions:
+        vf.append('crop=trunc(iw/2)*2:trunc(ih/2)*2')
 
     if watermark is not None:
         watermark = watermark.split('<EOL>')

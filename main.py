@@ -97,6 +97,9 @@ def parse_args():
     parser.add_argument(
         '--watermark'
     )
+    parser.add_argument(
+        '--even_dimensions', type=int
+    )
 
     args, unknown_args = parser.parse_known_args()
 

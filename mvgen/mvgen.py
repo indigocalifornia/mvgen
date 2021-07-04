@@ -104,6 +104,11 @@ class MVGen(object):
         if self.notifier is None:
             self.notifier = NullNotifier()
 
+    def _write_to_debug(self, data):
+        with open(str(self.debug_file), 'a') as file:
+            file.write(data)
+            file.write('\n')
+
     def load_audio(self, audio, bpm=None, delete_original_audio=False):
         """Load and process audio.
 
@@ -225,7 +230,8 @@ class MVGen(object):
     def generate(
         self, duration, sources=None, src_directory=None, src_paths=None,
         start=0, end=0, cuda=None, segment_codec=None,
-        width=None, height=None, watermark=None, watermark_fontsize=40
+        width=None, height=None, watermark=None, watermark_fontsize=40,
+        even_dimensions=False
     ):
         self.notifier.notify({'status': 'processing-video'})
 
@@ -299,7 +305,8 @@ class MVGen(object):
                     width=width,
                     height=height,
                     watermark=watermark,
-                    watermark_fontsize=watermark_fontsize
+                    watermark_fontsize=watermark_fontsize,
+                    even_dimensions=even_dimensions
                 )
 
                 runcmd(cmd, timeout=15)
@@ -321,16 +328,15 @@ class MVGen(object):
         if total_dur == 0:
             raise ValueError('Video segments have no length')
 
-        with open(str(self.debug_file), 'a') as tf:
-            for file, d, ss, diff in results:
-                d = str(datetime.timedelta(seconds=d))
-                r = {
-                    'time': d,
-                    'filename': file.name,
-                    'start': ss,
-                    'duration': diff
-                }
-                json.dump(r, tf)
+        for file, d, ss, diff in results:
+            d = str(datetime.timedelta(seconds=d))
+            r = json.dumps({
+                'time': d,
+                'filename': file.name,
+                'start': ss,
+                'duration': diff
+            })
+            self._write_to_debug(r)
 
     def make_join_file(self):
         logging.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
@@ -347,7 +353,7 @@ class MVGen(object):
                     f = cs.windowspath(f)
                 tf.write("file '{}'\n".format(f))
 
-    def join(self):
+    def join(self, convert=False, output_codec=None):
         self.notifier.notify({'status': 'encoding-video'})
 
         if not CUDA:
@@ -357,10 +363,19 @@ class MVGen(object):
 
         logging.info(f'VIDEO: JOINING {self.random_file} into {self.video}')
 
+        if convert:
+            logging.info(f'VIDEO: Converting video to final codec {output_codec}')
+        else:
+            logging.info('VIDEO: Video codec copy')
+
         cmd = cs.join(
             input_file=self.random_file,
             output=self.video,
+            convert=convert,
+            output_codec=output_codec,
         )
+
+        self._write_to_debug(cmd)
 
         exit_code = runcmd(cmd, raise_error=True)
         if exit_code != 0:
