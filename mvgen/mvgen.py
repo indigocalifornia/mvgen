@@ -105,7 +105,7 @@ class MVGen(object):
             self.notifier = NullNotifier()
 
     def _write_to_debug(self, data):
-        with open(str(self.debug_file), 'a') as file:
+        with open(str(self.debug_file), 'a', encoding='utf-8') as file:
             file.write(data)
             file.write('\n')
 
@@ -309,6 +309,8 @@ class MVGen(object):
                     even_dimensions=even_dimensions
                 )
 
+                self._write_to_debug(cmd)
+
                 runcmd(cmd, timeout=15)
 
                 dur = get_duration(outfile)
@@ -322,20 +324,21 @@ class MVGen(object):
 
                     continue
 
-                results.append((outfile, total_dur, ss, diff))
+                results.append((outfile, total_dur, ss, diff, file.name))
                 total_dur += dur
 
         if total_dur == 0:
             raise ValueError('Video segments have no length')
 
-        for file, d, ss, diff in results:
+        for file, d, ss, diff, original_name in results:
             d = str(datetime.timedelta(seconds=d))
             r = json.dumps({
                 'time': d,
                 'filename': file.name,
                 'start': ss,
-                'duration': diff
-            })
+                'duration': diff,
+                'original_name': original_name
+            }, ensure_ascii=False)
             self._write_to_debug(r)
 
     def make_join_file(self):

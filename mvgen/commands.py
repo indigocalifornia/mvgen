@@ -68,7 +68,8 @@ def process_segment(
     if cuda is None:
         cuda = CUDA
 
-    hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda' if cuda else ''
+    # hwaccel = '-hwaccel cuvid -hwaccel_output_format cuda' if cuda else ''
+    hwaccel = ''
     input_codec = '-c:v h264_cuvid' if cuda else ''
 
     if segment_codec is None:
@@ -77,9 +78,14 @@ def process_segment(
         else:
             segment_codec = '-c:v libx264 -crf 27 -preset ultrafast'
 
-    vf = get_vf(width, height, watermark, watermark_fontsize, even_dimensions)
+    vf = get_vf(
+        width, height, watermark, watermark_fontsize, even_dimensions,
+        deinterlace=False, colorspace=True, cuda=cuda
+    )
 
-    cmd = f'ffmpeg -y -hide_banner -loglevel error {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {segment_codec} -f mpeg {vf} "{output_file}"'
+    timebase = '-video_track_timescale 60000'
+
+    cmd = f'ffmpeg -y -hide_banner -loglevel error {hwaccel} {input_codec} -vsync 0 -ss {start} -t {length} -i "{input_file}" -ac 2 -c:a ac3 -ar 48000 -mbd rd -trellis 2 -cmp 2 -subcmp 2 -g 100 {segment_codec} {timebase} -f mpeg {vf} "{output_file}"'
 
     return cmd
 
@@ -98,7 +104,7 @@ def join(
             #     output_codec = '-c:v h264_nvenc -preset:v fast -tune:v hq -rc:v vbr -cq:v 19 -b:v 0 -profile:v high'
             # else:
             hwaccel = ''
-            output_codec = '-c:v libx264 -crf 27 -preset veryfast'
+            output_codec = '-c:v libx264 -crf 27 -preset ultrafast'
         else:
             hwaccel = ''
     else:
@@ -150,7 +156,10 @@ def get_windows_path(path):
     return f'wslpath -m "{path}"'
 
 
-def get_vf(width, height, watermark, watermark_fontsize, even_dimensions):
+def get_vf(
+    width, height, watermark, watermark_fontsize, even_dimensions, deinterlace,
+    colorspace, cuda
+):
     vf = []
 
     if width is not None and height is not None:
@@ -160,6 +169,15 @@ def get_vf(width, height, watermark, watermark_fontsize, even_dimensions):
 
     if even_dimensions:
         vf.append('crop=trunc(iw/2)*2:trunc(ih/2)*2')
+
+    if deinterlace:
+        if cuda:
+            vf.append('yadif_cuda')
+        else:
+            vf.append('yadif')
+
+    if colorspace:
+        vf.append('format=pix_fmts=yuv420p')
 
     if watermark is not None:
         watermark = watermark.split('<EOL>')
