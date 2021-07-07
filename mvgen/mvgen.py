@@ -412,7 +412,7 @@ class MVGen(object):
                 output=final_file
             )
 
-            runcmd(cmd)
+            runcmd(cmd, raise_error=True)
 
         else:
             logging.info('FINALIZE: Copying video only')
