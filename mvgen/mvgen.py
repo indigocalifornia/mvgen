@@ -148,9 +148,6 @@ class MVGen(object):
                 [i for i in audio.iterdir() if os.path.isfile(i)]
             )
 
-        duration = get_duration(audio, raise_error=True)
-        logging.info(f'Audio duration: {duration}')
-
         audio_name = modify_filename(os.path.basename(audio))
         new_audio = self.directory / audio_name
 
@@ -170,6 +167,10 @@ class MVGen(object):
 
     def _process_audio(self, audio, bpm):
         logging.info(f'AUDIO: Processing {audio}')
+
+        if os.path.exists(audio):
+            duration = get_duration(audio, raise_error=True)
+            logging.info(f'Audio duration: {duration}')
 
         if Path(str(bpm)).exists():
             logging.info('AUDIO: Beats file: {}'.format(bpm))
