@@ -10,6 +10,7 @@ import numpy as np
 import attr
 import inspect
 import json
+import bisect
 
 from pathlib import Path
 from tqdm import tqdm
@@ -20,7 +21,7 @@ from mvgen import commands as cs
 from mvgen.audio import get_bpm, get_beats
 from mvgen.utils import (
     natural_keys, mkdir, get_duration, get_bitrate, runcmd, modify_filename,
-    str2sec, checkcmd, wslpath
+    str2sec, checkcmd, wslpath, retry
 )
 from mvgen.variables import WSL, CUDA, GCP_PROJECT_ID
 
@@ -83,6 +84,27 @@ def get_args(config, function):
 class NullNotifier:
     def notify(self, *args, **kwargs):
         pass
+
+
+class RandomFile:
+    def __init__(self, paths):
+        self.paths = paths
+        self.segs = get_random_files(self.paths, limit=None)
+        self.position = 0
+
+        if not self.segs:
+            raise ValueError(f'No files found in {paths}')
+
+    def get(self):
+        seg = self.segs[self.position]
+
+        if self.position >= len(self.segs) - 1:
+            self.segs = get_random_files(self.paths, limit=None)
+            self.position = 0
+        else:
+            self.position += 1
+
+        return seg
 
 
 @attr.s
@@ -168,8 +190,11 @@ class MVGen(object):
         logging.info(f'AUDIO: Processing {audio}')
 
         if os.path.exists(audio):
-            duration = get_duration(audio, raise_error=True)
-            logging.info(f'Audio duration: {duration}')
+            self.audio_duration = get_duration(audio, raise_error=True)
+        else:
+            self.audio_duration = str2sec(str(audio))
+
+        logging.info(f'Audio duration: {self.audio_duration}')
 
         if Path(str(bpm)).exists():
             logging.info('AUDIO: Beats file: {}'.format(bpm))
@@ -177,7 +202,9 @@ class MVGen(object):
             with open(str(bpm), 'r') as text_file:
                 beats = text_file.read()
 
-            beats = [float(i) for i in beats.split(',')]
+            beats = [float(i.strip()) for i in beats.split(',') if len(i)]
+            beats = [0] + beats
+            beats = sorted(list(set(beats)))
 
         elif bpm == 'beats':
             logging.info('AUDIO: Beats mode')
@@ -213,12 +240,7 @@ class MVGen(object):
 
             diff = 60. / bpm
 
-            if os.path.exists(audio):
-                duration = get_duration(audio, raise_error=True)
-            else:
-                duration = str2sec(str(audio))
-
-            beats = list(np.arange(0, duration, diff))
+            beats = list(np.arange(0, self.audio_duration, diff))
 
         self.bpm = bpm
 
@@ -261,85 +283,131 @@ class MVGen(object):
                 new_beats.append(new)
             beats = list(np.sort(np.concatenate(new_beats)))
 
-        limit = len(beats) + 1
-
-        segs = get_random_files(src_paths, limit)
+        random_file_gen = RandomFile(paths=src_paths)
 
         if segment_codec is not None:
             logging.info(f'VIDEO: Using segment codec {segment_codec}')
 
+        process_kwargs = dict(
+            cuda=cuda,
+            segment_codec=segment_codec,
+            width=width,
+            height=height,
+            watermark=watermark,
+            watermark_fontsize=watermark_fontsize,
+            even_dimensions=even_dimensions
+        )
+
         total_dur = 0
-        results = []
-        for i in tqdm(np.arange(len(beats) - 1)):
-            diff = beats[i + 1] - total_dur
-            if diff > 0:
+        i = 0
+
+        with tqdm(total=len(beats)) as pbar:
+            while total_dur <= self.audio_duration:
                 self.notifier.notify({
                     'status': 'processing-video',
                     'progress': i / (len(beats) - 1)
                 })
 
-                file = segs[i]
-                filename = modify_filename(file.name, prefix=i)
-                outfile = self.random_directory / filename
-
-                dur = get_duration(file)
-
-                new_start = start * dur if start < 1 else start
-                new_end = end * dur if end < 1 else end
-
-                new_end = dur - end - diff
-
-                if new_end < new_start:
-                    logging.warning(f'File {file} duration {dur} with new end {new_end} is shorter than required {new_start}, ignoring')
-                    continue
-
-                ss = np.random.uniform(new_start, new_end)
-
-                cmd = cs.process_segment(
-                    start=ss,
-                    length=diff,
-                    input_file=file,
-                    output_file=outfile,
-                    cuda=cuda,
-                    segment_codec=segment_codec,
-                    width=width,
-                    height=height,
-                    watermark=watermark,
-                    watermark_fontsize=watermark_fontsize,
-                    even_dimensions=even_dimensions
+                remaining_ix = np.searchsorted(beats, total_dur, side='right')
+                diff = (
+                    beats[remaining_ix] - total_dur
+                    if remaining_ix < len(beats)
+                    else self.audio_duration - total_dur
                 )
 
-                self._write_to_debug(cmd)
+                res = self._make_segment(
+                    random_file_gen,
+                    i,
+                    diff,
+                    start,
+                    end,
+                    process_kwargs
+                )
 
-                runcmd(cmd, timeout=15)
-
-                dur = get_duration(outfile)
-
-                if dur <= 0:
-                    if outfile.exists():
-                        try:
-                            os.remove(str(outfile))
-                        except Exception as e:
-                            logging.error(e)
-
+                if res is None:
                     continue
 
-                results.append((outfile, total_dur, ss, diff, file.name))
-                total_dur += dur
+                file, outfile, out_duration, ss = res
 
-        if total_dur == 0:
-            raise ValueError('Video segments have no length')
+                self._write_segment_to_debug(
+                    position=total_dur,
+                    filename=outfile.name,
+                    ss=ss,
+                    diff=diff,
+                    original_filename=file.name
+                )
 
-        for file, d, ss, diff, original_name in results:
-            d = str(datetime.timedelta(seconds=d))
-            r = json.dumps({
-                'time': d,
-                'filename': file.name,
-                'start': ss,
-                'duration': diff,
-                'original_name': original_name
-            }, ensure_ascii=False)
-            self._write_to_debug(r)
+                total_dur += out_duration
+                i += 1
+                pbar.update(1)
+
+    @retry(times=5, exceptions=(ValueError,))
+    def _make_segment(
+        self, random_file_gen, prefix, diff, start, end,
+        process_kwargs, raise_error=True
+    ):
+        file = random_file_gen.get()
+
+        filename = modify_filename(file.name, prefix=prefix)
+        outfile = self.random_directory / filename
+
+        dur = get_duration(file)
+
+        new_start = start * dur if start < 1 else start
+
+        new_end = end * dur if end < 1 else end
+        new_end = dur - end - diff
+
+        if new_end < new_start:
+            msg = f'File {file} (duration {dur}, start {start}, end {end}) is too short to generate segment with length {diff}'
+            if raise_error:
+                raise ValueError(msg)
+
+            logging.error(msg)
+            return
+
+        ss = np.random.uniform(new_start, new_end)
+
+        cmd = cs.process_segment(
+            start=ss,
+            length=diff,
+            input_file=file,
+            output_file=outfile,
+            **process_kwargs
+        )
+
+        self._write_to_debug(cmd)
+
+        runcmd(cmd, timeout=15)
+
+        dur = get_duration(outfile)
+
+        if dur <= 0:
+            msg = f'Error when processing file {file}: output has has duration={dur}'
+            if raise_error:
+                raise ValueError(msg)
+            else:
+                if outfile.exists():
+                    try:
+                        os.remove(str(outfile))
+                    except Exception as e:
+                        logging.error(e)
+                return
+
+        return file, outfile, dur, ss
+
+    def _write_segment_to_debug(
+        self, position, filename, ss, diff, original_filename
+    ):
+        d = str(datetime.timedelta(seconds=position))
+        r = json.dumps({
+            'time': d,
+            'filename': filename,
+            'start': ss,
+            'duration': diff,
+            'original_name': original_filename
+        }, ensure_ascii=False)
+        self._write_to_debug(r)
 
     def make_join_file(self):
         logging.info(f'VIDEO: MAKING JOIN FILE for {self.random_directory}')
