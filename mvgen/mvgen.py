@@ -299,49 +299,83 @@ class MVGen(object):
         )
 
         total_dur = 0
-        i = 0
 
-        with tqdm(total=len(beats)) as pbar:
-            while total_dur <= self.audio_duration:
-                progress = i / (len(beats) - 1) if len(beats) > 1 else i
+        # i = 0
+        # with tqdm(total=len(beats)) as pbar:
+        #     while total_dur <= self.audio_duration:
+        #         progress = i / (len(beats) - 1) if len(beats) > 1 else i
 
-                self.notifier.notify({
-                    'status': 'processing-video',
-                    'progress': progress
-                })
+        #         self.notifier.notify({
+        #             'status': 'processing-video',
+        #             'progress': progress
+        #         })
 
-                remaining_ix = np.searchsorted(beats, total_dur, side='right')
-                diff = (
-                    beats[remaining_ix] - total_dur
-                    if remaining_ix < len(beats)
-                    else self.audio_duration - total_dur
-                )
+        #         remaining_ix = np.searchsorted(beats, total_dur, side='right')
+        #         diff = (
+        #             beats[remaining_ix] - total_dur
+        #             if remaining_ix < len(beats)
+        #             else self.audio_duration - total_dur
+        #         )
 
-                res = self._make_segment(
-                    random_file_gen,
-                    i,
-                    diff,
-                    start,
-                    end,
-                    process_kwargs
-                )
+        #         res = self._make_segment(
+        #             random_file_gen,
+        #             i,
+        #             diff,
+        #             start,
+        #             end,
+        #             process_kwargs
+        #         )
 
-                if res is None:
-                    continue
+        #         if res is None:
+        #             continue
 
-                file, outfile, out_duration, ss = res
+        #         file, outfile, out_duration, ss = res
 
-                self._write_segment_to_debug(
-                    position=total_dur,
-                    filename=outfile.name,
-                    ss=ss,
-                    diff=diff,
-                    original_filename=file.name
-                )
+        #         self._write_segment_to_debug(
+        #             position=total_dur,
+        #             filename=outfile.name,
+        #             ss=ss,
+        #             diff=diff,
+        #             original_filename=file.name
+        #         )
 
-                total_dur += out_duration
-                i += 1
-                pbar.update(1)
+        #         total_dur += out_duration
+        #         i += 1
+        #         pbar.update(1)
+
+        for i in tqdm(range(len(beats) - 1)):
+            progress = i / (len(beats) - 1) if len(beats) > 1 else i
+
+            self.notifier.notify({
+                'status': 'processing-video',
+                'progress': progress
+            })
+
+            diff = beats[i + 1] - total_dur
+
+            res = self._make_segment(
+                random_file_gen,
+                i,
+                diff,
+                start,
+                end,
+                process_kwargs
+            )
+
+            if res is None:
+                continue
+
+            file, outfile, out_duration, ss = res
+
+            self._write_segment_to_debug(
+                position=total_dur,
+                filename=outfile.name,
+                ss=ss,
+                diff=diff,
+                original_filename=file.name
+            )
+
+            total_dur += out_duration
 
     @retry(times=5, exceptions=(ValueError,))
     def _make_segment(
