@@ -303,9 +303,11 @@ class MVGen(object):
 
         with tqdm(total=len(beats)) as pbar:
             while total_dur <= self.audio_duration:
+                progress = i / (len(beats) - 1) if len(beats) > 1 else i
+
                 self.notifier.notify({
                     'status': 'processing-video',
-                    'progress': i / (len(beats) - 1)
+                    'progress': progress
                 })
 
                 remaining_ix = np.searchsorted(beats, total_dur, side='right')
