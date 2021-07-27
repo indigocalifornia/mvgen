@@ -80,7 +80,7 @@ def process_segment(
 
     vf = get_vf(
         width, height, watermark, watermark_fontsize, even_dimensions,
-        deinterlace=False, colorspace=True, cuda=cuda
+        deinterlace=False, colorspace=False, cuda=cuda
     )
 
     timebase = '-video_track_timescale 60000'

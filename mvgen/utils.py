@@ -92,10 +92,6 @@ def modify_filename(filename, prefix=None, suffix=None):
     whitelist = '. _-'
     filename = re.sub(r'[^\w' + whitelist + ']', '---', filename)
 
-    # Remove consequetive dots
-    pattern = re.compile(r'\.{2,}')
-    filename = pattern.sub('.', filename)
-
     fname, fext = os.path.splitext(filename)
 
     # Windows API has limit of 260 characters
@@ -105,8 +101,14 @@ def modify_filename(filename, prefix=None, suffix=None):
         fname = '{}_{}'.format(prefix, fname)
     if suffix is not None:
         fname = '{}_{}'.format(fname, suffix)
-    return '{}{}'.format(fname, fext)
 
+    filename = '{}{}'.format(fname, fext)
+
+    # Remove consequetive dots
+    pattern = re.compile(r'\.{2,}')
+    filename = pattern.sub('.', filename)
+
+    return filename
 
 def modify_extension(filename, ext):
     fname, fext = os.path.splitext(filename)
